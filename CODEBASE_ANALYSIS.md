@@ -79,10 +79,10 @@ Statistics were calculated using the following commands:
 # Total files count
 find . -type f ! -path "./.git/*" ! -path "./node_modules/*" | wc -l
 
-# Total lines of code
+# Total lines of code (tail -n 1 gets the final summary line from wc)
 find . -type f ! -path "./.git/*" ! -path "./node_modules/*" -exec wc -l {} + | tail -n 1
 
-# Total words
+# Total words (tail -n 1 gets the final summary line from wc)
 find . -type f ! -path "./.git/*" ! -path "./node_modules/*" -exec wc -w {} + | tail -n 1
 
 # File type breakdown
@@ -103,11 +103,12 @@ The Velocity AI codebase is a well-structured TypeScript/React application with 
 | Directory | Files | Lines | Words | Description |
 |-----------|-------|-------|-------|-------------|
 | `/src` | 144 | 19,385 | 68,388 | Main source code (React components, hooks, utils) |
-| `/api` | 1 | 258 | 949 | API server code |
+| `/public` | 15 | 819 | 4,350 | Public assets and static files (includes 12 CSV files) |
 | `/demo` | 4 | 615 | 1,833 | Demo and example files |
 | `/docs` | 3 | 532 | 3,281 | Project documentation |
-| `/public` | 15 | 819 | 4,350 | Public assets and static files |
-| `/asana` | 0 | 0 | 0 | Asana integration (empty) |
+| `/api` | 1 | 258 | 949 | API server code |
+
+*Note: Empty directories like `/asana` are not included in this breakdown.*
 
 **Key Insight:** The `/src` directory contains the vast majority of the codebase (76% of all files, 58% of all lines), which is typical for a React application.
 
