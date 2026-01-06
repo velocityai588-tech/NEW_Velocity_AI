@@ -1,0 +1,37 @@
+====================================================================
+           VELOCITY AI CODEBASE STATISTICS SUMMARY
+====================================================================
+
+Generated: 2026-01-06
+
+--------------------------------------------------------------------
+OVERALL METRICS (All Files)
+--------------------------------------------------------------------
+Total Files:                190
+Total Lines of Code:        33,679
+Total Words:                109,532
+
+--------------------------------------------------------------------
+SOURCE CODE METRICS (TypeScript/JavaScript Only)
+--------------------------------------------------------------------
+Source Code Files:          151
+Lines in Source Files:      20,094
+Words in Source Files:      69,376
+
+--------------------------------------------------------------------
+FILE TYPE DISTRIBUTION
+--------------------------------------------------------------------
+.tsx files:                 119  (TypeScript React Components)
+.ts files:                  30   (TypeScript)
+.csv files:                 12   (Data Files)
+.json files:                7    (Configuration)
+.md files:                  6    (Documentation)
+.html files:                4    (HTML)
+.svg files:                 2    (Images)
+.js files:                  2    (JavaScript)
+.css files:                 2    (Stylesheets)
+Other files:                5    (Miscellaneous)
+
+====================================================================
+NOTE: Statistics exclude .git directory and node_modules
+====================================================================
