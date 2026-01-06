@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "api": "tsx server.ts",
+    "api": "echo \"API disabled (moved to backend_disabled/server.disabled.ts)\"",
     "build": "vite build",
     "build:dev": "vite build --mode development",
     "lint": "eslint .",
