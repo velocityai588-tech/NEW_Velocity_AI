@@ -229,5 +229,31 @@ npm run build
 
 ---
 
+## 🔍 Code Analysis Tools
+
+This repository includes comprehensive code analysis tools to maintain code quality:
+
+```bash
+# Run complete analysis
+npm run analyze
+```
+
+**What it analyzes:**
+- 📊 Component size (finds components >300 lines)
+- 🪝 Hook complexity (identifies hooks doing too much)
+- 📦 Dependency analysis (files with 15+ imports)
+- 🔄 Circular dependencies
+- 🎯 Unused exports
+- 📈 UI vs Logic ratio
+- ⚙️ Code complexity metrics
+
+**Documentation:**
+- [Quick Start Guide](./ANALYSIS_QUICK_START.md)
+- [Complete Analysis Guide](./CODE_ANALYSIS_GUIDE.md)
+
+Reports are generated in `reports/` directory and `ANALYSIS_REPORT.md`.
+
+---
+
 ## License
 MIT
