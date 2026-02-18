@@ -9,7 +9,13 @@
     "build": "vite build",
     "build:dev": "vite build --mode development",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "analyze": "./scripts/analysis/run-all-analysis.sh",
+    "analyze:codebase": "tsx scripts/analysis/analyze-codebase.ts",
+    "analyze:duplicates": "./scripts/analysis/run-duplication-analysis.sh",
+    "analyze:unused": "ts-prune",
+    "analyze:circular": "madge --circular --extensions ts,tsx src/",
+    "analyze:complexity": "eslint . --max-warnings=999"
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",
@@ -52,6 +58,7 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "cmdk": "^1.1.1",
+    "connect-redis": "^7.1.0",
     "cors": "^2.8.5",
     "csv-parse": "^6.1.0",
     "date-fns": "^3.6.0",
@@ -75,6 +82,7 @@
     "react-resizable-panels": "^2.1.9",
     "react-router-dom": "^6.30.1",
     "recharts": "^2.15.4",
+    "redis": "^4.6.13",
     "sonner": "^1.7.4",
     "tailwind-merge": "^2.6.0",
     "tailwindcss-animate": "^1.0.7",
@@ -82,9 +90,7 @@
     "tsx": "^4.21.0",
     "vaul": "^0.9.9",
     "xlsx": "^0.18.5",
-    "zod": "^3.25.76",
-    "redis": "^4.6.13",
-    "connect-redis": "^7.1.0"
+    "zod": "^3.25.76"
   },
   "devDependencies": {
     "@eslint/js": "^9.32.0",
@@ -95,13 +101,17 @@
     "@types/react-dom": "^18.3.7",
     "@vitejs/plugin-react-swc": "^3.11.0",
     "autoprefixer": "^10.4.21",
+    "dependency-cruiser": "^17.3.8",
     "eslint": "^9.32.0",
+    "eslint-plugin-complexity": "^1.0.2",
     "eslint-plugin-react-hooks": "^5.2.0",
     "eslint-plugin-react-refresh": "^0.4.20",
     "globals": "^15.15.0",
+    "madge": "^8.0.0",
     "postcss": "^8.5.6",
     "supabase": "^2.75.2",
     "tailwindcss": "^3.4.17",
+    "ts-prune": "^0.10.3",
     "typescript": "^5.8.3",
     "typescript-eslint": "^8.38.0",
     "vite": "^6.4.1"

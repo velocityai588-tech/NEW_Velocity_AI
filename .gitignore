@@ -12,6 +12,10 @@ dist
 dist-ssr
 *.local
 
+# Analysis reports
+reports/
+ANALYSIS_REPORT.md
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
