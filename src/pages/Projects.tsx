@@ -7,6 +7,13 @@ import AnalyticsPanel from '@/components/analytics/AnalyticsPanel';
 import { loadProjects as fetchProjects, loadMetrics, type ProjectItem } from '@/lib/dataService';
 // apiUrl no longer used in this page
 import { useToast } from '@/contexts/ToastContext';
+import { 
+  calculateProjectHealthScore,
+  calculateTimelineScore,
+  calculateCapacityScore,
+  type TimelineData,
+  type CapacityData 
+} from '@/lib/utils';
 import { AlertCircle, TrendingUp, Calendar, Zap, BarChart3 } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
@@ -22,6 +29,14 @@ interface JiraIssue {
   assignee: string;
   due?: string;
   created?: string;
+  timetracking?: {
+    originalEstimateSeconds?: number;
+    timeSpentSeconds?: number;
+  };
+  worklog?: Array<{
+    author?: { displayName: string };
+    timeSpentSeconds?: number;
+  }>;
 }
 
 interface ProjectMetrics {
@@ -38,11 +53,23 @@ interface ProjectMetrics {
 // Fetch project issues and calculate metrics
 const fetchProjectMetrics = async (projectId: string): Promise<ProjectMetrics> => {
   try {
-    const response = await fetch(`/api/jira/issues?projectKey=${encodeURIComponent(projectId)}`);
+    const encodedId = encodeURIComponent(projectId);
+    const url = `/api/jira/issues?projectKey=${encodedId}`;
+    console.log(`[fetchProjectMetrics] Fetching from URL: ${url}`);
+    
+    const response = await fetch(url);
     if (!response.ok) throw new Error('Failed to fetch issues');
     
     const data = await response.json();
     const issues: JiraIssue[] = data.issues || [];
+
+    console.log(`[fetchProjectMetrics] Fetching issues for project: ${projectId}`);
+    console.log(`[fetchProjectMetrics] Issues count: ${issues.length}`);
+    
+    if (issues.length > 0) {
+      console.log(`[fetchProjectMetrics] Sample issue 1: ${issues[0].key} - ${issues[0].summary}`);
+      console.log(`[fetchProjectMetrics] Sample issue 2: ${issues[1]?.key} - ${issues[1]?.summary || 'N/A'}`);
+    }
 
     if (issues.length === 0) {
       return {
@@ -55,13 +82,20 @@ const fetchProjectMetrics = async (projectId: string): Promise<ProjectMetrics> =
       };
     }
 
-    // Calculate health score based on status
+    // Calculate completion percentage using actual Jira data
     const completedStatuses = ['Done', 'DONE', 'Closed', 'CLOSED', 'Resolved', 'RESOLVED'];
+    const inProgressStatuses = ['In Progress', 'IN PROGRESS', 'In Development', 'IN DEVELOPMENT'];
+    
     const completedCount = issues.filter(i => 
       completedStatuses.some(status => i.status?.toLowerCase().includes(status.toLowerCase()))
     ).length;
+    
+    const inProgressCount = issues.filter(i => 
+      inProgressStatuses.some(status => i.status?.toLowerCase().includes(status.toLowerCase()))
+    ).length;
 
-    const healthScore = Math.round((completedCount / issues.length) * 100);
+    // Actual Progress = % tasks completed (per spec)
+    const actualProgress = Math.round((completedCount / issues.length) * 100);
 
     // Extract unique team members
     const team = Array.from(new Set(
@@ -69,12 +103,6 @@ const fetchProjectMetrics = async (projectId: string): Promise<ProjectMetrics> =
         .map(i => i.assignee)
         .filter(a => a && a !== 'Unassigned')
     ));
-
-    // Determine if there's a critical alert (low health or risk)
-    const hasAlert = healthScore < 40 || issues.some(i => 
-      i.status?.toLowerCase().includes('blocked') || 
-      i.status?.toLowerCase().includes('stuck')
-    );
 
     // Calculate end date (latest due date)
     const dueDates = issues
@@ -85,9 +113,123 @@ const fetchProjectMetrics = async (projectId: string): Promise<ProjectMetrics> =
       ? new Date(Math.max(...dueDates))
       : undefined;
 
+    // Calculate project duration and days elapsed
+    const createdDates = issues
+      .filter(i => i.created)
+      .map(i => new Date(i.created!).getTime());
+    
+    const startDate = createdDates.length > 0 
+      ? new Date(Math.min(...createdDates))
+      : endDate ? new Date(endDate.getTime() - (14 * 24 * 60 * 60 * 1000)) : new Date();
+
+    const now = new Date();
+    let daysElapsed = Math.floor((now.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
+    let totalDays = endDate 
+      ? Math.floor((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24))
+      : 56; // Default 8 weeks
+
+    // Handle edge case: if dates are inverted (end before start), swap them
+    if (totalDays < 0) {
+      console.log(`[fetchProjectMetrics] WARNING: Negative totalDays detected (${totalDays}). Start: ${startDate.toISOString().split('T')[0]}, End: ${endDate?.toISOString().split('T')[0]}`);
+      totalDays = Math.abs(totalDays);
+    }
+
+    // Don't cap daysElapsed—let the delta formula handle late projects naturally
+    // For past-due projects, expectedProgress can exceed 100%, making delta more negative
+    daysElapsed = Math.max(0, daysElapsed);
+
+    // Calculate team utilization using actual Jira data
+    // Normalize by project duration so utilization reflects weekly workload
+    const projectWeeks = Math.max(1, totalDays / 7);
+    const weeklyCapacity = 40; // 40 hours per week
+
+    const teamMembers = team.map((member) => {
+      const memberIssues = issues.filter(i => i.assignee === member);
+      
+      const estimatedSeconds = memberIssues.reduce((sum: number, issue: any) => {
+        return sum + (issue.timetracking?.originalEstimateSeconds || 0);
+      }, 0);
+      
+      const spentSeconds = memberIssues.reduce((sum: number, issue: any) => {
+        return sum + (issue.timetracking?.timeSpentSeconds || 0);
+      }, 0);
+
+      const estimatedHours = estimatedSeconds / 3600;
+      const spentHours = spentSeconds / 3600;
+      
+      let utilization = 0;
+      if (estimatedHours > 0) {
+        // Weekly workload = total estimated hours / project duration in weeks
+        const weeklyWorkload = estimatedHours / projectWeeks;
+        utilization = Math.round((weeklyWorkload / weeklyCapacity) * 100);
+      } else if (spentHours > 0) {
+        // Fallback: use actual spent hours if estimates are missing
+        const weeklyWorkload = spentHours / projectWeeks;
+        utilization = Math.round((weeklyWorkload / weeklyCapacity) * 100);
+      } else if (memberIssues.length > 0) {
+        // No time tracking at all — estimate based on active issue count
+        const activeIssues = memberIssues.filter(i => 
+          !['done', 'closed', 'resolved'].some(
+            status => i.status?.toLowerCase().includes(status)
+          )
+        ).length;
+        // ~6 hours per active issue per week
+        const weeklyWorkload = activeIssues * 6;
+        utilization = Math.round((weeklyWorkload / weeklyCapacity) * 100);
+      }
+
+      return {
+        name: member,
+        utilization: Math.min(utilization, 200),
+      };
+    });
+
+    // Prepare timeline data for health score calculation
+    const timelineData: TimelineData = {
+      actualProgress,
+      daysElapsed: Math.max(0, daysElapsed),
+      totalDays: Math.max(1, totalDays),
+    };
+
+    // Prepare capacity data for health score calculation
+    const capacityData: CapacityData = {
+      teamMembers,
+    };
+
+    // Calculate health score using the formula
+    const healthScore = calculateProjectHealthScore(timelineData, capacityData);
+    
+    console.log(`[fetchProjectMetrics] ===== PROJECT: ${projectId} =====`);
+    console.log(`[fetchProjectMetrics] Issues: ${completedCount} completed, ${inProgressCount} in progress, ${issues.length - completedCount - inProgressCount} not started`);
+    console.log(`[fetchProjectMetrics] Actual Progress (tasks completed): ${actualProgress}%`);
+    console.log(`[fetchProjectMetrics] Start Date: ${startDate.toISOString().split('T')[0]}`);
+    console.log(`[fetchProjectMetrics] End Date: ${endDate?.toISOString().split('T')[0] || 'undefined'}`);
+    console.log(`[fetchProjectMetrics] Days Elapsed: ${daysElapsed} / Total Days: ${totalDays}`);
+    
+    // Calculate expected progress for logging
+    const expectedProgress = (daysElapsed / totalDays) * 100;
+    const delta = actualProgress - expectedProgress;
+    console.log(`[fetchProjectMetrics] Expected Progress: ${Math.round(expectedProgress)}%, Delta: ${Math.round(delta)}%`);
+    
+    console.log(`[fetchProjectMetrics] Team Members and Utilization:`);
+    teamMembers.forEach(m => {
+      console.log(`  - ${m.name}: ${m.utilization}%`);
+    });
+    console.log(`[fetchProjectMetrics] Team members overloaded (>110%): ${teamMembers.filter(m => m.utilization > 110).length}/${teamMembers.length}`);
+    const timelineScore = calculateTimelineScore(timelineData);
+    const capacityScore = calculateCapacityScore(capacityData);
+    console.log(`[fetchProjectMetrics] Timeline Score: ${timelineScore}, Capacity Score: ${capacityScore}`);
+    console.log(`[fetchProjectMetrics] Final Health Score: ${healthScore}`);
+
+    // Determine if there's a critical alert (low health or risk)
+    const hasAlert = healthScore < 40 || issues.some(i => 
+      i.status?.toLowerCase().includes('blocked') || 
+      i.status?.toLowerCase().includes('stuck')
+    );
+
     // Calculate weeks remaining
     const weeksRemaining = endDate
-      ? Math.ceil((endDate.getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24 * 7))
+      ? Math.ceil((endDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24 * 7))
       : undefined;
 
     return {
@@ -251,7 +393,9 @@ export default function Projects({ jiraConnected = true, withNav = true }: Proje
         // Fetch metrics for each project
         const metricsMap: Record<string, ProjectMetrics> = {};
         for (const project of loadedProjects) {
+          console.log(`[Projects] Fetching metrics for project: ${project.id}`);
           metricsMap[project.id] = await fetchProjectMetrics(project.id);
+          console.log(`[Projects] Metrics for ${project.id}:`, metricsMap[project.id]);
         }
         setProjectMetrics(metricsMap);
 
@@ -367,7 +511,11 @@ export default function Projects({ jiraConnected = true, withNav = true }: Proje
                       <div
                         key={p.id}
                         onClick={() => navigate(`/projects/jira-dashboard?project=${encodeURIComponent(p.id)}&fullscreen=true`)}
-                        className="bg-white rounded-2xl shadow-sm hover:shadow-md transition-all cursor-pointer p-8 border border-gray-100"
+                        className={`rounded-2xl shadow-sm hover:shadow-md transition-all cursor-pointer p-8 border ${
+                          metrics.healthScore < 40
+                            ? 'bg-red-50 border-red-200'
+                            : 'bg-white border-gray-100'
+                        }`}
                       >
                         <div className="flex items-center justify-between gap-6">
                           {/* Left: Project Name & Timeline */}
@@ -403,14 +551,6 @@ export default function Projects({ jiraConnected = true, withNav = true }: Proje
                                 </span>
                               </div>
                             </div>
-
-                            {/* AI Alert Indicator */}
-                            {metrics.hasAlert && (
-                              <div className="flex items-center gap-2 px-3 py-2 bg-amber-50 border border-amber-200 rounded-lg font-light">
-                                <AlertCircle className="w-4 h-4 text-amber-600" />
-                                <span className="text-xs text-amber-700">Alert</span>
-                              </div>
-                            )}
 
                             {/* Team Avatars */}
                             <div className="flex-shrink-0">

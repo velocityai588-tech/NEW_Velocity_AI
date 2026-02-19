@@ -1,0 +1,51 @@
+Issue Type,Project Name,Summary,Description,Assignee,Status,Original Estimate,Time Spent,Start date,Due date
+Task,Mobile App Redesign,User Persona Research,Identify key user demographics and pain points.,Alex Rivera,Done,54000,54000,2026-03-01,2026-03-05
+Task,Mobile App Redesign,Competitive Analysis,Audit top 5 competitor apps for UI/UX trends.,Jordan Lee,Done,36000,36000,2026-03-03,2026-03-06
+Task,Mobile App Redesign,Information Architecture,Map out the new app navigation tree.,Sam Chen,Done,72000,72000,2026-03-05,2026-03-12
+Task,Mobile App Redesign,Low-Fidelity Wireframes,Create structural sketches for all main screens.,Taylor Reed,Done,108000,108000,2026-03-10,2026-03-20
+Task,Mobile App Redesign,Brand Style Guide,Finalize typography and color palette.,Morgan Patrel,Done,54000,54000,2026-03-15,2026-03-22
+Task,Mobile App Redesign,High-Fidelity UI Design - Part 1,Design Login and Signup screens.,Taylor Reed,Done,90000,90000,2026-03-20,2026-03-30
+Task,Mobile App Redesign,High-Fidelity UI Design - Part 2,Design Dashboard and Data Vis.,Taylor Reed,Done,90000,90000,2026-04-01,2026-04-10
+Task,Mobile App Redesign,Interactive Prototype,Build clickable prototype in Figma.,Taylor Reed,Done,72000,72000,2026-04-11,2026-04-15
+Task,Mobile App Redesign,Stakeholder Approval,Obtain final sign-off on visual designs.,Alex Rivera,Done,18000,18000,2026-04-16,2026-04-17
+Task,Mobile App Redesign,Tech Stack Selection,Finalize React Native libraries.,Jordan Lee,Done,43200,43200,2026-04-18,2026-04-20
+Task,Mobile App Redesign,Project Repo Setup,Initialize Git repo and CI/CD.,Sam Chen,Done,28800,28800,2026-04-21,2026-04-22
+Task,Mobile App Redesign,API Contract Definition,Agree on JSON structures with backend.,Jordan Lee,Done,57600,57600,2026-04-23,2026-04-28
+Task,Mobile App Redesign,Foundation Component Library,Build reusable UI components.,Morgan Patrel,Done,144000,144000,2026-04-25,2026-05-10
+Task,Mobile App Redesign,Authentication Logic,Implement OAuth2 and biometrics.,Sam Chen,Done,108000,108000,2026-05-01,2026-05-15
+Task,Mobile App Redesign,Navigation Implementation,Setup Tab and Stack navigation.,Jordan Lee,Done,72000,72000,2026-05-12,2026-05-20
+Task,Mobile App Redesign,Dashboard Integration,Connect frontend to live API data.,Jordan Lee,In Progress,144000,57600,2026-05-21,2026-06-05
+Task,Mobile App Redesign,User Profile Edit Flow,Build account update logic.,Morgan Patrel,In Progress,90000,32400,2026-05-25,2026-06-10
+Task,Mobile App Redesign,Dark Mode Support,Implement dynamic theme switching.,Taylor Reed,To Do,72000,0,2026-06-01,2026-06-10
+Task,Mobile App Redesign,Push Notification Setup,Integrate Firebase for alerts.,Sam Chen,To Do,86400,0,2026-06-05,2026-06-15
+Task,Mobile App Redesign,Search Functionality,Implement global search filters.,Jordan Lee,To Do,126000,0,2026-06-10,2026-06-25
+Task,Mobile App Redesign,Offline Mode Support,Setup local caching via SQLite.,Sam Chen,To Do,162000,0,2026-06-15,2026-07-05
+Task,Mobile App Redesign,Media Upload Feature,Build image picker and upload logic.,Morgan Patrel,To Do,90000,0,2026-06-20,2026-07-01
+Task,Mobile App Redesign,Error Boundary Handling,Create global error catchers.,Jordan Lee,To Do,54000,0,2026-06-25,2026-07-02
+Task,Mobile App Redesign,Unit Testing - UI,Write Jest tests for components.,Taylor Reed,To Do,108000,0,2026-07-01,2026-07-15
+Task,Mobile App Redesign,E2E Testing - Flows,Write Detox tests for user paths.,Sam Chen,To Do,144000,0,2026-07-05,2026-07-20
+Task,Mobile App Redesign,Analytics Integration,Connect Mixpanel for tracking.,Alex Rivera,To Do,43200,0,2026-07-10,2026-07-14
+Task,Mobile App Redesign,Performance Optimization,Profile app and reduce re-renders.,Jordan Lee,To Do,90000,0,2026-07-15,2026-07-25
+Task,Mobile App Redesign,Accessibility Audit,Ensure WCAG compliance.,Taylor Reed,To Do,72000,0,2026-07-18,2026-07-25
+Task,Mobile App Redesign,App Store Metadata Prep,Write descriptions and screenshots.,Alex Rivera,To Do,54000,0,2026-07-20,2026-07-25
+Task,Mobile App Redesign,Beta Build Release,Deploy build to TestFlight.,Sam Chen,To Do,36000,0,2026-07-25,2026-07-26
+Task,Mobile App Redesign,Beta Feedback Review,Categorize issues from testers.,Alex Rivera,To Do,72000,0,2026-07-27,2026-08-05
+Task,Mobile App Redesign,Bug Fix Sprint 1,Resolve high-priority crashes.,Jordan Lee,To Do,144000,0,2026-07-28,2026-08-08
+Task,Mobile App Redesign,Bug Fix Sprint 2,Address UI inconsistencies.,Morgan Patrel, To Do,144000,0,2026-08-01,2026-08-12
+Task,Mobile App Redesign,Deep Link Support,Configure URL schemes.,Sam Chen,To Do,43200,0,2026-08-05,2026-08-08
+Task,Mobile App Redesign,Payment Gateway Integration,Connect Stripe for purchases.,Jordan Lee,To Do,180000,0,2026-08-08,2026-08-20
+Task,Mobile App Redesign,Privacy Policy Update,Update legal text.,Alex Rivera,To Do,28800,0,2026-08-10,2026-08-12
+Task,Mobile App Redesign,Localization - Spanish,Translate strings for Spanish market.,Morgan Patrel,To Do,72000,0,2026-08-12,2026-08-20
+Task,Mobile App Redesign,Localization - French,Translate strings for French market.,Morgan Patrel,To Do,72000,0,2026-08-15,2026-08-22
+Task,Mobile App Redesign,Final Security Review,Audit API keys and secrets.,Taylor Reed,To Do,54000,0,2026-08-18,2026-08-21
+Task,Mobile App Redesign,Animation Polish,Add Lottie animations.,Taylor Reed,To Do,54000,0,2026-08-20,2026-08-25
+Task,Mobile App Redesign,User Onboarding Flow,Build tutorial screens.,Morgan Patrel,To Do,72000,0,2026-08-21,2026-08-27
+Task,Mobile App Redesign,Final Regression Testing,Full sweep on multiple devices.,Sam Chen,To Do,108000,0,2026-08-23,2026-08-28
+Task,Mobile App Redesign,Submission - App Store,Submit build for Apple review.,Alex Rivera,To Do,14400,0,2026-08-28,2026-08-28
+Task,Mobile App Redesign,Submission - Google Play,Submit build for Android review.,Alex Rivera,To Do,14400,0,2026-08-28,2026-08-28
+Task,Mobile App Redesign,Marketing Site Update,Reflect UI on website.,Morgan Patrel,To Do,54000,0,2026-08-25,2026-08-30
+Task,Mobile App Redesign,Press Release Draft,Prepare announcement for blogs.,Alex Rivera,To Do,36000,0,2026-08-26,2026-08-29
+Task,Mobile App Redesign,Social Media Campaign,Schedule launch day posts.,Alex Rivera,To Do,43200,0,2026-08-27,2026-08-31
+Task,Mobile App Redesign,Server Scaling Check,Ensure backend can handle spike.,Jordan Lee,To Do,36000,0,2026-08-29,2026-08-30
+Task,Mobile App Redesign,Official Launch Day,Release update to 100% users.,Alex Rivera,To Do,28800,0,2026-08-31,2026-08-31
+Task,Mobile App Redesign,Launch Monitoring,Monitor crash reports live.,Jordan Lee,To Do,57600,0,2026-08-31,2026-09-02

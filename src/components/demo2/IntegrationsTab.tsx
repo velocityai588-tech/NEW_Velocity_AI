@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { CheckCircle, AlertCircle, Clock, ExternalLink } from 'lucide-react';
+import { CheckCircle, AlertCircle, Clock, ExternalLink, ChevronDown } from 'lucide-react';
 
 interface Integration {
   id: string;
@@ -65,6 +65,10 @@ export default function IntegrationsTab() {
   ]);
 
   const [loadingStates, setLoadingStates] = useState<Record<string, boolean>>({});
+  const [jiraSites, setJiraSites] = useState<Array<{ id: string; name: string; url: string }>>([]);
+  const [selectedJiraSite, setSelectedJiraSite] = useState<string>('');
+  const [showSiteSelector, setShowSiteSelector] = useState(false);
+  const [switchingSite, setSwitchingSite] = useState(false);
 
   // Check connection status on mount
   useEffect(() => {
@@ -84,6 +88,16 @@ export default function IntegrationsTab() {
         updatedIntegrations[jiraIndex].status = jiraData.connected ? 'connected' : 'disconnected';
         if (jiraData.connected) {
           updatedIntegrations[jiraIndex].lastSync = '1 minute ago';
+          // Fetch available sites for this user
+          if (jiraData.availableSites && jiraData.availableSites.length > 0) {
+            setJiraSites(jiraData.availableSites);
+            // Set the currently selected site (the one that's active)
+            if (jiraData.site && jiraData.site.id) {
+              setSelectedJiraSite(jiraData.site.id);
+            } else if (jiraData.availableSites[0]) {
+              setSelectedJiraSite(jiraData.availableSites[0].id);
+            }
+          }
         }
       }
     } catch (error) {
@@ -159,6 +173,9 @@ export default function IntegrationsTab() {
         return;
       } else if (integrationId === 'jira') {
         await fetch('/api/jira/auth/disconnect', { method: 'POST', credentials: 'include' });
+        setJiraSites([]);
+        setSelectedJiraSite('');
+        setShowSiteSelector(false);
       }
 
       setIntegrations(prev =>
@@ -170,6 +187,36 @@ export default function IntegrationsTab() {
       );
     } catch (error) {
       console.error(`Failed to disconnect ${integrationId}:`, error);
+    }
+  };
+
+  const handleSwitchJiraSite = async (siteId: string) => {
+    if (siteId === selectedJiraSite) {
+      setShowSiteSelector(false);
+      return;
+    }
+
+    setSwitchingSite(true);
+    try {
+      const response = await fetch(`/api/jira/auth/switch-site/${siteId}`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' }
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to switch Jira site');
+      }
+
+      const data = await response.json();
+      setSelectedJiraSite(siteId);
+      setShowSiteSelector(false);
+      console.log('Switched to Jira site:', data.site.name);
+    } catch (error) {
+      console.error('Failed to switch Jira site:', error);
+      alert('Failed to switch Jira site. Please try again.');
+    } finally {
+      setSwitchingSite(false);
     }
   };
 
@@ -287,6 +334,40 @@ export default function IntegrationsTab() {
             {integration.lastSync && (
               <div className="text-xs text-gray-500 mb-4">
                 Last sync: {integration.lastSync}
+              </div>
+            )}
+
+            {/* Jira Site Selector */}
+            {integration.id === 'jira' && integration.connected && jiraSites.length > 1 && (
+              <div className="mb-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
+                <div className="text-xs font-semibold text-gray-700 mb-2">Jira Workspace</div>
+                <div className="relative">
+                  <button
+                    onClick={() => setShowSiteSelector(!showSiteSelector)}
+                    className="w-full px-3 py-2 text-xs bg-white border border-gray-300 rounded-lg text-left flex items-center justify-between hover:border-gray-400 transition-colors"
+                  >
+                    <span>{jiraSites.find(s => s.id === selectedJiraSite)?.name || 'Select workspace'}</span>
+                    <ChevronDown className="w-4 h-4" />
+                  </button>
+                  
+                  {showSiteSelector && (
+                    <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-300 rounded-lg shadow-lg z-10">
+                      {jiraSites.map(site => (
+                        <button
+                          key={site.id}
+                          onClick={() => handleSwitchJiraSite(site.id)}
+                          disabled={switchingSite}
+                          className={`w-full px-3 py-2 text-xs text-left hover:bg-blue-50 transition-colors ${
+                            selectedJiraSite === site.id ? 'bg-blue-100 font-semibold' : ''
+                          } ${switchingSite ? 'opacity-50 cursor-not-allowed' : ''}`}
+                        >
+                          {site.name}
+                          {selectedJiraSite === site.id && ' ✓'}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
             )}
 

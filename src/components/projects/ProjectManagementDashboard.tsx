@@ -6,6 +6,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { 
+  calculateProjectHealthScore, 
+  getHealthScoreStatus,
+  TimelineData,
+  CapacityData
+} from '@/lib/utils';
 
 interface JiraIssue {
   key: string;
@@ -14,6 +20,17 @@ interface JiraIssue {
   assignee: string;
   due?: string;
   created?: string;
+  storyPoints?: number;
+  timetracking?: {
+    originalEstimateSeconds?: number;
+    timeSpentSeconds?: number;
+  };
+  worklog?: Array<{
+    author?: { displayName: string };
+    timeSpentSeconds?: number;
+  }>;
+  issueType?: string;
+  priority?: string;
 }
 
 interface ProjectManagementDashboardProps {
@@ -31,22 +48,34 @@ interface ProjectManagementDashboardProps {
 
 // Status badge color
 const getStatusColor = (healthScore: number) => {
-  if (healthScore >= 80) return { bg: 'bg-green-50', border: 'border-green-200', text: 'text-green-700', label: 'On Track' };
-  if (healthScore >= 60) return { bg: 'bg-blue-50', border: 'border-blue-200', text: 'text-blue-700', label: 'Good Progress' };
-  if (healthScore >= 40) return { bg: 'bg-yellow-50', border: 'border-yellow-200', text: 'text-yellow-700', label: 'At Risk' };
-  return { bg: 'bg-red-50', border: 'border-red-200', text: 'text-red-700', label: 'Critical' };
+  const status = getHealthScoreStatus(healthScore);
+  return {
+    bg: status.bg,
+    border: status.border,
+    text: status.color,
+    label: status.status,
+  };
 };
 
-// Calculate metrics from issues
+// Calculate metrics from issues using actual Jira data
 const calculateMetrics = (issues: JiraIssue[]) => {
   const completedStatuses = ['Done', 'DONE', 'Closed', 'CLOSED', 'Resolved', 'RESOLVED'];
   const completedCount = issues.filter(i => 
     completedStatuses.some(status => i.status?.toLowerCase().includes(status.toLowerCase()))
   ).length;
 
-  // Mock hour data - in real scenario, would come from Jira custom fields
-  const totalEstHours = Math.round(Math.random() * 1500 + 800);
-  const actualHours = Math.round(totalEstHours * (0.6 + Math.random() * 0.5));
+  // Use actual Jira timetracking data
+  const totalEstSeconds = issues.reduce((sum, issue) => {
+    return sum + (issue.timetracking?.originalEstimateSeconds || 0);
+  }, 0);
+  
+  const actualSeconds = issues.reduce((sum, issue) => {
+    return sum + (issue.timetracking?.timeSpentSeconds || 0);
+  }, 0);
+
+  // Convert seconds to hours
+  const totalEstHours = Math.round(totalEstSeconds / 3600);
+  const actualHours = Math.round(actualSeconds / 3600);
   const remainingHours = Math.max(0, totalEstHours - actualHours);
   const completion = Math.round((completedCount / issues.length) * 100);
 
@@ -60,12 +89,63 @@ const calculateMetrics = (issues: JiraIssue[]) => {
   };
 };
 
+// Calculate team member utilization from actual Jira data
+const calculateTeamUtilization = (team: string[], issues: JiraIssue[]) => {
+  return team.map((member) => {
+    // Get all issues assigned to this team member
+    const memberIssues = issues.filter(i => i.assignee === member);
+    
+    // Calculate total estimated and spent hours for this member
+    const estimatedSeconds = memberIssues.reduce((sum, issue) => {
+      return sum + (issue.timetracking?.originalEstimateSeconds || 0);
+    }, 0);
+    
+    const spentSeconds = memberIssues.reduce((sum, issue) => {
+      return sum + (issue.timetracking?.timeSpentSeconds || 0);
+    }, 0);
+
+    // Convert to hours
+    const estimatedHours = estimatedSeconds / 3600;
+    const spentHours = spentSeconds / 3600;
+    
+    // Assume 40 hour work week (standard)
+    const weeklyCapacity = 40;
+    
+    // Calculate utilization percentage based on time spent
+    const utilization = estimatedHours > 0 
+      ? Math.round((spentHours / weeklyCapacity) * 100)
+      : 0;
+
+    return {
+      name: member,
+      utilization: Math.min(utilization, 200), // Cap at 200% for display purposes
+      estimatedHours: Math.round(estimatedHours),
+      spentHours: Math.round(spentHours),
+      assignedIssuesCount: memberIssues.length,
+    };
+  });
+};
+
 // Team member card
-const TeamMemberCard = ({ member, index }: { member: string; index: number }) => {
-  // Mock allocation data
-  const allocated = 40;
-  const actual = 30 + Math.random() * 20;
-  const usage = Math.round((actual / allocated) * 100);
+const TeamMemberCard = ({ member, index, issues }: { member: string; index: number; issues: JiraIssue[] }) => {
+  // Get actual data for this team member from Jira
+  const memberIssues = issues.filter(i => i.assignee === member);
+  
+  const estimatedSeconds = memberIssues.reduce((sum, issue) => {
+    return sum + (issue.timetracking?.originalEstimateSeconds || 0);
+  }, 0);
+  
+  const spentSeconds = memberIssues.reduce((sum, issue) => {
+    return sum + (issue.timetracking?.timeSpentSeconds || 0);
+  }, 0);
+
+  const estimatedHours = estimatedSeconds / 3600;
+  const spentHours = spentSeconds / 3600;
+  const weeklyCapacity = 40;
+  const usage = estimatedHours > 0 
+    ? Math.round((spentHours / weeklyCapacity) * 100)
+    : 0;
+  
   const status = usage > 100 ? 'Overloaded' : usage > 85 ? 'High Load' : 'Healthy';
   const statusColor = usage > 100 ? 'text-red-700 bg-red-50' : usage > 85 ? 'text-yellow-700 bg-yellow-50' : 'text-green-700 bg-green-50';
 
@@ -79,7 +159,7 @@ const TeamMemberCard = ({ member, index }: { member: string; index: number }) =>
           <div className="min-w-0">
             <p className="font-light text-gray-900 truncate">{member}</p>
             <p className="text-xs text-gray-500 font-light">
-              {['Frontend Lead', 'Backend Developer', 'UI Designer', 'Full Stack', 'QA Engineer'][index % 5]}
+              {memberIssues.length} issue{memberIssues.length !== 1 ? 's' : ''}
             </p>
           </div>
         </div>
@@ -91,14 +171,14 @@ const TeamMemberCard = ({ member, index }: { member: string; index: number }) =>
       <div className="space-y-2">
         <div className="flex justify-between text-xs">
           <span className="text-gray-600 font-light">Allocated</span>
-          <span className="font-light text-gray-900">{allocated}h</span>
+          <span className="font-light text-gray-900">{Math.round(estimatedHours)}h</span>
         </div>
         <div className="flex justify-between text-xs">
-          <span className="text-gray-600 font-light">Actual</span>
-          <span className="font-light text-gray-900">{Math.round(actual)}h</span>
+          <span className="text-gray-600 font-light">Spent</span>
+          <span className="font-light text-gray-900">{Math.round(spentHours)}h</span>
         </div>
         <div className="flex justify-between text-xs">
-          <span className="text-gray-600 font-light">Usage</span>
+          <span className="text-gray-600 font-light">Capacity Used</span>
           <span className={`font-light ${usage > 100 ? 'text-red-700' : usage > 85 ? 'text-yellow-700' : 'text-green-700'}`}>
             {usage}%
           </span>
@@ -112,16 +192,24 @@ const TeamMemberCard = ({ member, index }: { member: string; index: number }) =>
 const TaskRow = ({ issue, index }: { issue: JiraIssue; index: number }) => {
   const completedStatuses = ['Done', 'DONE', 'Closed', 'CLOSED', 'Resolved', 'RESOLVED'];
   const isCompleted = completedStatuses.some(status => issue.status?.toLowerCase().includes(status.toLowerCase()));
-  const progress = isCompleted ? 100 : Math.random() * 70 + 20;
-  const estimatedHours = Math.round(80 + Math.random() * 160);
-  const actualHours = Math.round(estimatedHours * (0.6 + Math.random() * 0.5));
+  
+  // Calculate progress based on time spent vs estimated
+  const estimatedSeconds = issue.timetracking?.originalEstimateSeconds || 0;
+  const spentSeconds = issue.timetracking?.timeSpentSeconds || 0;
+  
+  const progress = estimatedSeconds > 0 
+    ? Math.min(100, Math.round((spentSeconds / estimatedSeconds) * 100))
+    : isCompleted ? 100 : 0;
+
+  const estimatedHours = Math.round(estimatedSeconds / 3600);
+  const actualHours = Math.round(spentSeconds / 3600);
 
   return (
     <div className="flex items-center gap-4 p-3 bg-white rounded-lg hover:bg-gray-50 transition-colors border border-gray-200">
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 mb-1">
           <span className="text-xs font-light text-primary bg-primary/10 px-2 py-0.5 rounded">
-            {['Backend', 'Frontend', 'Full Stack', 'Design', 'DevOps'][index % 5]}
+            {issue.key}
           </span>
           <p className="font-light text-gray-900 truncate text-sm">{issue.summary.slice(0, 50)}</p>
         </div>
@@ -130,7 +218,7 @@ const TaskRow = ({ issue, index }: { issue: JiraIssue; index: number }) => {
           <span>•</span>
           <span className="font-light">{estimatedHours}h est.</span>
           <span>•</span>
-          <span className="font-light">{actualHours}h actual</span>
+          <span className="font-light">{actualHours}h spent</span>
         </div>
       </div>
 
@@ -142,7 +230,7 @@ const TaskRow = ({ issue, index }: { issue: JiraIssue; index: number }) => {
               style={{ width: `${progress}%` }}
             />
           </div>
-          <p className="text-xs text-gray-600 mt-1 text-right font-light">{Math.round(progress)}%</p>
+          <p className="text-xs text-gray-600 mt-1 text-right font-light">{progress}%</p>
         </div>
 
         <div className="flex items-center gap-1">
@@ -165,14 +253,52 @@ export default function ProjectManagementDashboard({
   projectId,
   projectTitle,
   issues,
-  healthScore,
+  healthScore: propHealthScore,
   endDate,
   weeksRemaining,
   team,
   fullscreen = false,
 }: ProjectManagementDashboardProps) {
   const metrics = calculateMetrics(issues);
-  const statusColor = getStatusColor(healthScore);
+  const teamUtilization = calculateTeamUtilization(team, issues);
+  
+  // Calculate timeline data from actual Jira dates
+  const createdDates = issues
+    .filter(i => i.created)
+    .map(i => new Date(i.created!).getTime());
+  
+  const dueDates = issues
+    .filter(i => i.due)
+    .map(i => new Date(i.due!).getTime());
+  
+  const projectStartDate = createdDates.length > 0 
+    ? new Date(Math.min(...createdDates))
+    : new Date();
+  
+  const projectEndDate = dueDates.length > 0
+    ? new Date(Math.max(...dueDates))
+    : new Date(projectStartDate.getTime() + 14 * 24 * 60 * 60 * 1000); // Default 2 weeks
+  
+  const now = new Date();
+  const totalDays = Math.max(1, Math.abs(Math.floor((projectEndDate.getTime() - projectStartDate.getTime()) / (1000 * 60 * 60 * 24))));
+  // Don't cap daysElapsed—let the delta formula handle late projects naturally
+  const daysElapsed = Math.max(0, Math.floor((now.getTime() - projectStartDate.getTime()) / (1000 * 60 * 60 * 24)));
+  
+  const timelineData: TimelineData = {
+    actualProgress: metrics.completion, // % tasks completed
+    daysElapsed,
+    totalDays,
+  };
+
+  // Capacity data
+  const capacityData: CapacityData = {
+    teamMembers: teamUtilization,
+  };
+
+  // Calculate health score
+  const calculatedHealthScore = calculateProjectHealthScore(timelineData, capacityData);
+  
+  const statusColor = getStatusColor(calculatedHealthScore);
   const daysRemaining = weeksRemaining ? Math.round(weeksRemaining * 7) : 44;
   const predictedDelay = Math.round(Math.random() * 20 - 5); // -5 to +15 days
   const predictedDate = new Date();
@@ -181,10 +307,10 @@ export default function ProjectManagementDashboard({
   const dashboardContent = (
     <>
       <div className="bg-gray-50 border-b border-gray-200 p-6">
-        <div className="flex items-start justify-between mb-4">
+        <div className="flex items-start justify-between mb-2">
           <div>
-            <h1 className="text-3xl font-light text-gray-900 mb-2">{projectTitle}</h1>
-            <p className="text-gray-600 font-light">Project Management & Team Allocation Dashboard</p>
+            <h1 className="text-3xl font-light text-gray-900 mb-1">{projectTitle}</h1>
+            <p className="text-gray-600 font-light">8-Week Team Capacity Analysis</p>
           </div>
           <button
             onClick={onClose}
@@ -193,114 +319,48 @@ export default function ProjectManagementDashboard({
             <X className="w-6 h-6" />
           </button>
         </div>
-
-        {/* Status & Timeline */}
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <p className="text-xs text-gray-600 mb-1">Status</p>
-            <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg border ${statusColor.bg} ${statusColor.border}`}>
-              <AlertTriangle className="w-4 h-4" />
-              <span className={`font-bold text-sm ${statusColor.text}`}>{statusColor.label}</span>
-            </div>
-          </div>
-          <div>
-            <p className="text-xs text-gray-600 mb-1">Timeline</p>
-            <p className="font-semibold text-gray-900">
-              Jan 15, 2026 → {endDate || 'Mar 30, 2026'} · {daysRemaining} days remaining
-            </p>
-          </div>
-        </div>
       </div>
 
-      <div className="p-6 space-y-6">
-        {/* Health Score & Basic Metrics */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div className="bg-white border border-gray-200 rounded-lg p-6">
-            <div className="text-center">
-              <p className="text-sm text-gray-600 mb-2 font-light">Health Score</p>
-              <div className="text-5xl font-light text-primary mb-1">{healthScore}</div>
-              <p className="text-sm text-gray-600 font-light">Feasibility <span className="font-light text-gray-900">85%</span></p>
-            </div>
-            <button className="w-full mt-4 px-4 py-2 bg-primary hover:bg-primary/90 text-white text-sm font-light rounded-lg transition-colors">
-              Edit Project
-            </button>
-          </div>
-
-          <div className="grid grid-cols-3 gap-3">
-            <div className="bg-white border border-gray-200 rounded-lg p-4 text-center">
-              <p className="text-xs text-gray-600 mb-2 font-light">Total Est.</p>
-              <p className="text-2xl font-light text-gray-900">{metrics.totalEstHours}</p>
-              <p className="text-xs text-gray-500 mt-1 font-light">Hours</p>
-            </div>
-            <div className="bg-white border border-gray-200 rounded-lg p-4 text-center">
-              <p className="text-xs text-gray-600 mb-2 font-light">Actual</p>
-              <p className="text-2xl font-light text-gray-900">{metrics.actualHours}</p>
-              <p className="text-xs text-gray-500 mt-1 font-light">Hours</p>
-            </div>
-            <div className="bg-white border border-gray-200 rounded-lg p-4 text-center">
-              <p className="text-xs text-gray-600 mb-2 font-light">Remaining</p>
-              <p className="text-2xl font-light text-gray-900">{metrics.remainingHours}</p>
-              <p className="text-xs text-gray-500 mt-1 font-light">Hours</p>
-            </div>
-          </div>
-        </div>
-
-        {/* Completion & Delivery Timeline */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="bg-white border border-gray-200 rounded-lg p-4 text-center">
-            <p className="text-xs text-gray-600 mb-2 font-light">Overall Completion</p>
-            <p className="text-3xl font-light text-primary">{metrics.completion}%</p>
-            <div className="mt-3 h-2 bg-gray-200 rounded-full overflow-hidden">
-              <div 
-                className="h-full bg-primary transition-all"
-                style={{ width: `${metrics.completion}%` }}
-              />
-            </div>
-          </div>
-
-          <div className="bg-white border border-gray-200 rounded-lg p-4">
-            <p className="text-xs text-gray-600 mb-2 font-light">Planned Completion</p>
-            <p className="font-light text-gray-900 mb-3">{endDate || 'Mar 30, 2026'}</p>
-            <p className="text-sm text-gray-600 font-light">Prediction based on original timeline</p>
-          </div>
-
-          <div className="bg-white border border-gray-200 rounded-lg p-4">
-            <p className="text-xs text-gray-600 mb-2 font-light">Predicted (AI)</p>
-            <p className="font-light text-gray-900 mb-1">{predictedDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</p>
-            <p className={`text-sm font-semibold ${predictedDelay > 0 ? 'text-red-700' : 'text-green-700'}`}>
-              {predictedDelay > 0 ? '+' : ''}{predictedDelay} days
-            </p>
-          </div>
-        </div>
-
-        {/* Team Allocation */}
-        <div>
-          <div className="flex items-center gap-2 mb-4">
-            <Users className="w-5 h-5 text-primary" />
-            <h2 className="text-lg font-light text-gray-900">Team Allocation ({team.length} Members)</h2>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            {team.map((member, idx) => (
-              <TeamMemberCard key={member} member={member} index={idx} />
-            ))}
-          </div>
-        </div>
-
-        {/* Task Breakdown */}
-        <div>
-          <div className="flex items-center gap-2 mb-4">
-            <CheckCircle2 className="w-5 h-5 text-indigo-600" />
-            <h2 className="text-lg font-bold text-gray-900">Task Breakdown ({issues.length} Tasks)</h2>
-          </div>
-          <div className="space-y-2 max-h-[300px] overflow-y-auto">
-            {issues.slice(0, 10).map((issue, idx) => (
-              <TaskRow key={issue.key} issue={issue} index={idx} />
-            ))}
-            {issues.length > 10 && (
-              <div className="text-center py-3 text-sm text-gray-600">
-                +{issues.length - 10} more tasks
+      <div className="p-6">
+        {/* Project Overview */}
+        <div className="space-y-6">
+          {/* Task Summary */}
+          <div className="bg-gray-50 rounded-lg p-6">
+            <h3 className="font-semibold text-gray-900 mb-4">Task Overview</h3>
+            <div className="grid grid-cols-3 gap-4">
+              <div>
+                <p className="text-sm text-gray-600 font-light">Total Tasks</p>
+                <p className="text-2xl font-light text-gray-900">{metrics.totalCount}</p>
               </div>
-            )}
+              <div>
+                <p className="text-sm text-gray-600 font-light">Completed</p>
+                <p className="text-2xl font-light text-green-600">{metrics.completedCount}</p>
+              </div>
+              <div>
+                <p className="text-sm text-gray-600 font-light">Completion Rate</p>
+                <p className="text-2xl font-light text-blue-600">{metrics.completion}%</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Team Members */}
+          <div className="bg-gray-50 rounded-lg p-6">
+            <h3 className="font-semibold text-gray-900 mb-4">Team Members ({team.length})</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {team.map((member, index) => (
+                <TeamMemberCard key={member} member={member} index={index} issues={issues} />
+              ))}
+            </div>
+          </div>
+
+          {/* Recent Tasks */}
+          <div className="bg-gray-50 rounded-lg p-6">
+            <h3 className="font-semibold text-gray-900 mb-4">Recent Tasks</h3>
+            <div className="space-y-2 max-h-96 overflow-y-auto">
+              {issues.slice(0, 10).map((issue, index) => (
+                <TaskRow key={issue.key} issue={issue} index={index} />
+              ))}
+            </div>
           </div>
         </div>
       </div>

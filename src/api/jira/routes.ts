@@ -132,7 +132,7 @@ router.get('/issues', async (req: Request, res: Response) => {
 
     // Fetch issues from Jira Cloud API - use /rest/api/3/search/jql (required endpoint)
     const jql = `project = ${projectKey}`;
-    const fields = 'key,summary,created,duedate,description,priority,status,assignee,issuetype,customfield_10015';
+    const fields = 'key,summary,created,duedate,description,priority,status,assignee,issuetype,customfield_10015,customfield_10016,timetracking,worklog';
     const searchUrl = `https://api.atlassian.com/ex/jira/${cloudId}/rest/api/3/search/jql?jql=${encodeURIComponent(jql)}&maxResults=100&fields=${encodeURIComponent(fields)}`;
     
     console.log('[Jira Issues] Search URL:', searchUrl);
@@ -192,6 +192,9 @@ router.get('/issues', async (req: Request, res: Response) => {
         duration,
         start: startDate,
         customfield_10015: fields.customfield_10015 || null,
+        storyPoints: fields.customfield_10016 || 0, // Story points field
+        timetracking: fields.timetracking || { originalEstimateSeconds: 0, timeSpentSeconds: 0 },
+        worklog: fields.worklog?.worklogs || [],
       };
     });
 

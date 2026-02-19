@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { useLocation } from 'react-router-dom'
 import { ArrowLeft } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -9,6 +9,7 @@ import { apiUrl } from '@/lib/api'
 import ProjectManagementDashboard from '@/components/projects/ProjectManagementDashboard'
 
 export default function JiraDashboard() {
+  const navigate = useNavigate()
   const [allIssues, setAllIssues] = useState<Issue[]>([])
   const [selectedAssignee, setSelectedAssignee] = useState('')
   const [assignees, setAssignees] = useState<string[]>([])
@@ -126,6 +127,19 @@ export default function JiraDashboard() {
     // Auto-fetch available projects on mount
     const fetchAvailableProjects = async () => {
       try {
+        // Check if we're in fullscreen mode with a specific project
+        const params = new URLSearchParams(window.location.search)
+        const fullscreenParam = params.get('fullscreen')
+        const projectParam = params.get('project')
+        
+        // If we're in fullscreen with a project specified, skip the initial load
+        if (fullscreenParam === 'true' && projectParam) {
+          console.log('[JiraDashboard] Fullscreen mode detected, skipping auto-load of first project')
+          setLoading(false)
+          setProjectsLoaded(true)
+          return
+        }
+
         const url = apiUrl('/api/jira/projects')
         const response = await fetch(url, { credentials: 'include' })
         
@@ -144,8 +158,8 @@ export default function JiraDashboard() {
           setAvailableProjects(projects)
           setProjectsLoaded(true)
           
-          // Auto-load first project if available
-          if (projects.length > 0) {
+          // Auto-load first project if available (and not in fullscreen mode)
+          if (projects.length > 0 && fullscreenParam !== 'true') {
             const firstProjectKey = projects[0].key
             console.log('[JiraDashboard] Auto-loading first project:', firstProjectKey)
             handleSwitchProject(firstProjectKey)
@@ -185,8 +199,11 @@ export default function JiraDashboard() {
     console.log('[JiraDashboard] URL params:', location.search, 'project param:', projectParam, 'fullscreen:', fullscreenParam)
     if (projectParam) {
       // Attempt to load the specified project right away
-      console.log('[JiraDashboard] Auto-loading project:', projectParam.toUpperCase())
-      handleSwitchProject(projectParam.toUpperCase())
+      const projectKey = projectParam.toUpperCase()
+      console.log('[JiraDashboard] Auto-loading project:', projectKey)
+      // Force fetch this specific project immediately
+      setLoading(true)
+      handleSwitchProject(projectKey)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [location.search])
@@ -278,10 +295,11 @@ export default function JiraDashboard() {
   const handleSwitchProject = async (projectKey: string) => {
     setRefreshing(true)
     setError(null)
+    setAllIssues([]) // Clear issues immediately
+    setCurrentProject(projectKey) // Update current project immediately
     try {
       const formattedIssues = await fetchProjectData(projectKey)
       setAllIssues(formattedIssues)
-      setCurrentProject(projectKey)
       const newAssignees = [...new Set(formattedIssues.map(i => i.assignee))].sort()
       setAssignees(newAssignees)
       setSelectedAssignee('')
@@ -329,7 +347,7 @@ export default function JiraDashboard() {
     return (
       <ProjectManagementDashboard
         isOpen={true}
-        onClose={() => window.history.back()}
+        onClose={() => navigate('/projects')}
         projectId={currentProject}
         projectTitle={currentProjectTitle}
         issues={allIssues}
