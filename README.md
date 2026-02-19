@@ -3,7 +3,7 @@
 # Overview
 Full-stack prductivity analytics platform that integrates with **Jira**, **Asan**, **HubSpot**, and **Microsoft 365** to provide real-time insights, Gantt charts, ROI calculations, and resource optimization..
 
-**Stc:** React + TypeScript + Express +OAuth
+**Stc:** React + TypeScript + Express +OAut
 ## Arhitcture
 ``
 ┌────────────────────────────────────────────────────────────────┐
