@@ -11,9 +11,10 @@ interface WorkloadTableProps {
   employees: EmployeeProfile[];
   persona: 'manager' | 'employee';
   onTaskClick: (task: Task) => void;
+  approvedLeaves?: any[];
 }
 
-export const WorkloadTable: React.FC<WorkloadTableProps> = ({ tasks, employees, persona, onTaskClick }) => {
+export const WorkloadTable: React.FC<WorkloadTableProps> = ({ tasks, employees, persona, onTaskClick, approvedLeaves = [] }) => {
   const isManager = persona === 'manager';
 
   // --- REFACTOR: Delegate to shared component for Manager View ---
@@ -22,7 +23,8 @@ export const WorkloadTable: React.FC<WorkloadTableProps> = ({ tasks, employees, 
       <OrganizationalWorkloadTable 
         tasks={tasks} 
         employees={employees} 
-        onTaskClick={onTaskClick} 
+        onTaskClick={onTaskClick}
+        approvedLeaves={approvedLeaves}
       />
     );
   }

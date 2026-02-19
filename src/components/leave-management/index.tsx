@@ -24,6 +24,67 @@ import LeaveApprovalAgent from '../leave-approval/LeaveApprovalAgent';
 // FIX: Import 'fetchRawCSV' to get the actual Task data, not the ML Summary
 import { fetchRawCSV } from '../ml-model/RecommendationEngine';
 
+// --- HELPER FUNCTIONS FOR CAPACITY UPDATE ---
+/**
+ * Calculate business days (Mon-Fri) between two dates
+ */
+const calculateBusinessDays = (startDate: string, endDate: string): number => {
+  const start = new Date(startDate);
+  const end = new Date(endDate);
+  let count = 0;
+  const current = new Date(start);
+
+  while (current <= end) {
+    const dayOfWeek = current.getDay();
+    if (dayOfWeek !== 0 && dayOfWeek !== 6) {
+      count += 1;
+    }
+    current.setDate(current.getDate() + 1);
+  }
+  return count;
+};
+
+/**
+ * Update capacity endpoint with leave hours for an employee
+ */
+const updateCapacityWithLeave = async (employeeName: string, leaveHours: number): Promise<boolean> => {
+  try {
+    const apiBase = typeof import.meta !== 'undefined' && !!(import.meta as any).env && (import.meta as any).env.DEV 
+      ? 'http://localhost:4000' 
+      : '';
+    const capacityUrl = apiBase ? `${apiBase}/api/v1/analyze/capacity` : '/api/v1/analyze/capacity';
+
+    // Create candidate with the leave hours added to their PTO
+    const candidate = {
+      id: employeeName,
+      name: employeeName,
+      base_productive_hours: 40,
+      efficiency_score: 1,
+      current_load: 0,
+      pto_hours_this_week: leaveHours, // Updated PTO from leave application
+      holiday_hours_this_week: 0
+    };
+
+    const response = await fetch(capacityUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ candidates: [candidate] })
+    });
+
+    if (response.ok) {
+      const result = await response.json();
+      console.log(`[Leave] Updated capacity for ${employeeName}:`, result);
+      return true;
+    } else {
+      console.warn(`[Leave] Capacity update failed with status ${response.status}`);
+      return false;
+    }
+  } catch (err) {
+    console.error('[Leave] Error updating capacity:', err);
+    return false;
+  }
+};
+
 // --- JIRA INTEGRATION HELPERS ---
 interface JiraProjectData {
   tasks: Task[];
@@ -426,7 +487,7 @@ export default function LeaveManagementTab() {
   };
 
   // Handle leave request from Employee Portal
-  const handleEmployeeLeaveRequest = (leaveData: { 
+  const handleEmployeeLeaveRequest = async (leaveData: { 
     employeeName: string;
     startDate: string; 
     endDate: string; 
@@ -446,16 +507,39 @@ export default function LeaveManagementTab() {
     // Add leave request
     setLeaves(prev => [newLeave, ...prev]);
 
-    // Log affected tasks for manager notification
-
+    // Calculate leave hours and update capacity
+    const leaveHours = calculateBusinessDays(leaveData.startDate, leaveData.endDate) * 8;
+    console.log(`[Leave] ${leaveData.employeeName} applied for ${leaveHours} hours of leave`);
+    
+    // Update capacity endpoint with the leave hours
+    const capacityUpdated = await updateCapacityWithLeave(leaveData.employeeName, leaveHours);
+    
+    if (capacityUpdated) {
+      console.log(`[Leave] Capacity updated for ${leaveData.employeeName}`);
+      // Trigger a refresh of the capacity dashboard by emitting a custom event
+      window.dispatchEvent(new CustomEvent('leaveApplied', { 
+        detail: { employeeName: leaveData.employeeName, leaveHours } 
+      }));
+    }
   };
 
   // Handle leave approval from notification panel
-  const handleApproveLeave = (leave: LeaveRequest) => {
+  const handleApproveLeave = async (leave: LeaveRequest) => {
     setLeaves(prev => 
       prev.map(l => l.id === leave.id ? { ...l, status: 'Approved' } : l)
     );
 
+    // When leave is approved, update capacity with official leave hours
+    const leaveHours = calculateBusinessDays(leave.startDate, leave.endDate) * 8;
+    console.log(`[Leave] ${leave.name}'s leave approved - ${leaveHours} hours`);
+    
+    const capacityUpdated = await updateCapacityWithLeave(leave.name, leaveHours);
+    if (capacityUpdated) {
+      // Trigger refresh of capacity dashboard
+      window.dispatchEvent(new CustomEvent('leaveApproved', { 
+        detail: { employeeName: leave.name, leaveHours, leaveId: leave.id } 
+      }));
+    }
   };
 
   // Handle leave rejection from notification panel
@@ -678,6 +762,7 @@ export default function LeaveManagementTab() {
               employees={employees}
               persona="manager"
               onTaskClick={handleTaskClick}
+              approvedLeaves={leaves.filter(l => l.status === 'Approved')}
             />
           </div>
         </div>

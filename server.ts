@@ -76,8 +76,6 @@ app.use(cors({
 }))
 
 app.use(express.json())
-
-// Session middleware for OAuth flows (Jira)
 // CRITICAL: SameSite=none + Secure=true required for OAuth redirects (Provider -> App)
 const sessionConfig: any = {
   secret: process.env.SESSION_SECRET || 'dev-secret-change-in-prod',
@@ -103,6 +101,54 @@ if (redisStore) {
 }
 
 app.use(session(sessionConfig))
+console.log('[Server] Session middleware registered')
+
+// ============ CAPACITY ENDPOINT (must be AFTER session middleware) ============
+app.post('/api/v1/analyze/capacity', (req: Request, res: Response) => {
+  console.log('[Capacity] POST /api/v1/analyze/capacity hit!');
+  try {
+    const candidates = req.body?.candidates;
+    if (!Array.isArray(candidates)) {
+      return res.status(400).json({ error: 'Missing or invalid candidates array' });
+    }
+
+    const results = candidates.map((c: any) => {
+      const base = Number(c.base_productive_hours ?? 40);
+      const efficiency = Number(c.efficiency_score ?? 1);
+      const currentLoad = Number(c.current_load ?? 0);
+      const pto = Number(c.pto_hours_this_week ?? 0);
+      const holiday = Number(c.holiday_hours_this_week ?? 0);
+      const available = Math.max(0, Math.round((base * efficiency - currentLoad - pto - holiday) * 100) / 100);
+      return {
+        id: c.id ?? c.name,
+        name: c.name ?? 'Unknown',
+        base_productive_hours: base,
+        efficiency_score: efficiency,
+        current_load: currentLoad,
+        pto_hours_this_week: pto,
+        holiday_hours_this_week: holiday,
+        available_hours: available,
+      };
+    });
+
+    const team_total = results.reduce((s: number, r: any) => s + (r.available_hours || 0), 0);
+    return res.json({ team_total, results });
+  } catch (err) {
+    console.error('[Capacity] Error:', err);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+});
+console.log('[Server] Capacity POST endpoint registered at /api/v1/analyze/capacity');
+
+// ============ Enable Jira, Deployed, and Leave-Approval routers ============
+app.use('/api/jira', jiraRoutes);
+console.log('[Server] Jira OAuth routes mounted at /api/jira');
+
+app.use('/api/deployed', deployedRoutes);
+console.log('[Server] Deployed routes mounted at /api/deployed');
+
+app.use('/api/leave-approval', leaveApprovalRoutes);
+console.log('[Server] Leave Approval Agent routes mounted at /api/leave-approval');
 
 const PORT = Number(process.env.API_PORT || 4000)
 const NODE_ENV = process.env.NODE_ENV || 'development'
@@ -158,40 +204,22 @@ app.get("/health", (_req: Request, res: Response) => {
   })
 })
 
-
-
-// ============ Jira OAuth & API Routes (multi-tenant) ============
-app.use('/api/jira', jiraRoutes);
-console.log('[Server] Jira OAuth routes mounted');
-
-// ============ Deployed API Routes ============
-app.use('/api/deployed', deployedRoutes);
-console.log('[Server] Deployed routes mounted');
-
-// ============ Leave Approval Agent Routes ============
-app.use('/api/leave-approval', leaveApprovalRoutes);
-console.log('[Server] Leave Approval Agent routes mounted');
-
-// try {
-//   const stack = (hubspotRoutes as any)?.stack || []
-//   const routes = stack.map((layer: any) => {
-//     if (layer.route) return `${Object.keys(layer.route.methods).join(',').toUpperCase()} ${layer.route.path}`
-//     return layer.name || 'middleware'
-//   })
-//   console.log('[Server] HubSpot router registered routes:', routes)
-// } catch (e) {
-//   console.log('[Server] Could not introspect hubspotRoutes stack', e)
-// }
-
-// Temporary direct test route to verify requests reach the server
-// app.get('/api/hubspot/auth/status-test', (req: Request, res: Response) => {
-//   console.log('[Direct Test] /api/hubspot/auth/status-test hit, sessionID:', req.sessionID)
-//   res.json({ ok: true, test: 'direct' })
-// })
-
-// Also mount HubSpot router at /hubspot for debugging (non-API prefix)
-// app.use('/hubspot', hubspotRoutes)
-// console.log('[Server] Also mounted HubSpot routes at /hubspot for debugging')
+// Debug endpoint to list registered routes
+app.get('/debug/routes', (_req, res) => {
+  try {
+    const routes: string[] = [];
+    // @ts-ignore
+    app._router && app._router.stack.forEach((r: any) => {
+      if (r.route && r.route.path) {
+        const methods = Object.keys(r.route.methods).join(',').toUpperCase();
+        routes.push({ path: r.route.path, methods });
+      }
+    });
+    res.json({ routes });
+  } catch (err) {
+    res.status(500).json({ error: String(err) });
+  }
+});
 
 // SPA Fallback: serve index.html for all non-API routes
 // Waitlist endpoint: accepts { email } and writes to Supabase (server key) and/or forwards to a Google Sheets webhook
@@ -239,6 +267,7 @@ app.post('/api/waitlist', async (req: Request, res: Response) => {
 
 // SPA fallback route - must be last
 app.use((req: Request, res: Response) => {
+  console.log('[Fallback] Caught request:', req.method, req.path, 'url:', req.url);
   if (req.url.startsWith('/api/')) {
     res.status(404).json({ error: 'API endpoint not found' })
     return

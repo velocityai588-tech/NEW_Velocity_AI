@@ -1,0 +1,12 @@
+{
+  "candidates": [
+    {
+      "name": "Alice",
+      "base_productive_hours": 40,
+      "efficiency_score": 1,
+      "current_load": 10,
+      "pto_hours_this_week": 0,
+      "holiday_hours_this_week": 0
+    }
+  ]
+}

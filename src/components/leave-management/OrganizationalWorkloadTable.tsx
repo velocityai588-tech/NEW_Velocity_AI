@@ -1,177 +1,296 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Card } from '../ui/card';
-import { CheckCircle2, Briefcase, User } from 'lucide-react';
-import { Task, EmployeeProfile } from './types';
-import { DAYS } from './data';
+import { Briefcase, RefreshCw } from 'lucide-react';
+import { Button } from '../ui/button';
 
-interface OrganizationalWorkloadProps {
-  tasks: Task[];
-  employees: EmployeeProfile[];
-  onTaskClick?: (task: Task) => void;
-  title?: string;
-  className?: string;
+interface CandidateIn {
+  id?: string;
+  name: string;
+  current_load?: number;
+  skills?: string[];
+  role_level?: string;
+  avg_completion_time?: number;
+  efficiency_score?: number;
+  base_productive_hours?: number;
+  pto_hours_this_week?: number;
+  holiday_hours_this_week?: number;
 }
 
-export const OrganizationalWorkloadTable: React.FC<OrganizationalWorkloadProps> = ({ 
-  tasks, 
-  employees, 
-  onTaskClick,
-  title = "Organizational Workload",
-  className
-}) => {
-  
-  const getDailyLoad = (employeeName: string, day: number) => {
-    return tasks
-      .filter(t => t.assignee === employeeName && t.day === day && !t.isCancelled)
-      .reduce((sum, t) => sum + t.hours, 0);
+interface CapacityResult {
+  id: string;
+  name: string;
+  available_hours: number;
+  base_productive_hours: number;
+  efficiency_score: number;
+  current_load: number;
+  pto_hours_this_week: number;
+  holiday_hours_this_week: number;
+}
+
+interface LeaveData {
+  id: number;
+  name: string;
+  startDate: string;
+  endDate: string;
+  status: 'Pending' | 'Approved' | 'Rejected';
+}
+
+interface OrganizationalWorkloadTableProps {
+  approvedLeaves?: LeaveData[];
+  onLeaveRefresh?: () => void;
+}
+
+export const OrganizationalWorkloadTable: React.FC<OrganizationalWorkloadTableProps> = ({ approvedLeaves = [], onLeaveRefresh }) => {
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [results, setResults] = useState<CapacityResult[]>([]);
+  const [teamTotal, setTeamTotal] = useState<number>(0);
+  const [refreshKey, setRefreshKey] = useState(0);
+
+  // Helper: Calculate business days between two dates
+  const calculateBusinessDays = (startDate: string, endDate: string): number => {
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    let count = 0;
+    const current = new Date(start);
+
+    while (current <= end) {
+      const dayOfWeek = current.getDay();
+      if (dayOfWeek !== 0 && dayOfWeek !== 6) {
+        count += 1;
+      }
+      current.setDate(current.getDate() + 1);
+    }
+    return count;
   };
 
-  const getStatusColor = (logged: number, planned: number) => {
-    const ratio = logged / (planned || 1);
-    if (ratio > 1.1) return 'bg-amber-500'; 
-    if (ratio >= 1) return 'bg-emerald-500';
-    return 'bg-blue-500'; 
+  // Helper: Calculate total PTO hours for an employee from approved leaves
+  const calculateEmployeePTO = (employeeName: string): number => {
+    return approvedLeaves
+      .filter(leave => leave.name === employeeName && leave.status === 'Approved')
+      .reduce((total, leave) => {
+        const businessDays = calculateBusinessDays(leave.startDate, leave.endDate);
+        return total + (businessDays * 8); // 8 hours per business day
+      }, 0);
   };
 
-  // Safe Avatar Initials Getter
-  const getInitials = (name: string) => {
-    if (!name) return "??";
-    return name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
+  // Listen for leave events to trigger refresh
+  useEffect(() => {
+    const handleLeaveApplied = () => {
+      console.log('[Capacity Dashboard] Leave applied event received, refreshing...');
+      setRefreshKey(prev => prev + 1);
+    };
+
+    const handleLeaveApproved = () => {
+      console.log('[Capacity Dashboard] Leave approved event received, refreshing...');
+      setRefreshKey(prev => prev + 1);
+    };
+
+    window.addEventListener('leaveApplied', handleLeaveApplied);
+    window.addEventListener('leaveApproved', handleLeaveApproved);
+
+    return () => {
+      window.removeEventListener('leaveApplied', handleLeaveApplied);
+      window.removeEventListener('leaveApproved', handleLeaveApproved);
+    };
+  }, []);
+
+  const fetchCapacityData = async () => {
+    // Fetch Jira projects then issues, aggregate by assignee, then call capacity API
+    setLoading(true);
+    setError(null);
+    try {
+      const projectsResp = await fetch('/api/jira/projects');
+      if (projectsResp.status === 401) {
+        setError('Not connected to Jira. Please connect your Jira account.');
+        setLoading(false);
+        return;
+      }
+
+      const projData = await projectsResp.json();
+      const projects = projData.projects || [];
+
+      // Fetch issues for all projects (max 100 per project as implemented server-side)
+      const assigneeMap: Record<string, CandidateIn> = {};
+
+      for (const p of projects) {
+        try {
+          const issuesResp = await fetch(`/api/jira/issues?projectKey=${encodeURIComponent(p.key)}`);
+          if (!issuesResp.ok) continue;
+          const issuesJson = await issuesResp.json();
+          const issues = issuesJson.issues || [];
+
+          for (const issue of issues) {
+            const assignee = issue.assignee || 'Unassigned';
+            const key = assignee || 'Unassigned';
+            if (!assigneeMap[key]) {
+              assigneeMap[key] = {
+                id: key,
+                name: assignee,
+                current_load: 0,
+                skills: [],
+                efficiency_score: 1,
+                base_productive_hours: 40,
+                pto_hours_this_week: 0,
+                holiday_hours_this_week: 0,
+              };
+            }
+
+            // Sum time spent from worklog or timetracking if present
+            const worklog = issue.worklog || [];
+            let seconds = 0;
+            if (Array.isArray(worklog)) {
+              for (const w of worklog) {
+                seconds += Number(w.timeSpentSeconds || 0);
+              }
+            }
+            const timeSpentHours = seconds / 3600;
+            assigneeMap[key].current_load = (assigneeMap[key].current_load || 0) + timeSpentHours;
+          }
+        } catch (e) {
+          console.warn('Failed to fetch issues for project', p.key, e);
+        }
+      }
+
+      const candidates = Object.values(assigneeMap);
+
+      // Add PTO from approved leaves to each candidate
+      const candidatesWithLeaves = candidates.map(candidate => ({
+        ...candidate,
+        pto_hours_this_week: (candidate.pto_hours_this_week || 0) + calculateEmployeePTO(candidate.name)
+      }));
+
+      // Determine API base (use local API during development to avoid proxy issues)
+      // import.meta.env.DEV is available in Vite; fallback to checking host
+      const DEV = typeof import.meta !== 'undefined' && !!(import.meta as any).env && (import.meta as any).env.DEV;
+      let apiBase = DEV ? 'http://localhost:4000' : '';
+      // Fallback: when running in the browser dev server (5173) but import.meta.env isn't available,
+      // detect by window.location and point requests to the local backend.
+      try {
+        if (!apiBase && typeof window !== 'undefined') {
+          const port = window.location.port || '';
+          const host = window.location.hostname || '';
+          if (port === '5173' || host === 'localhost' || host === '127.0.0.1') {
+            apiBase = 'http://localhost:4000';
+          }
+        }
+      } catch (e) {
+        // ignore
+      }
+
+      // Call capacity API. Try primary path, then fallbacks if 404.
+      const postTo = async (url: string) => {
+        const full = url.startsWith('http') ? url : `${apiBase}${url}`;
+        const r = await fetch(full, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ candidates: candidatesWithLeaves }),
+        });
+        return r;
+      };
+
+      let capResp = await postTo('/api/v1/analyze/capacity');
+      if (capResp.status === 404) {
+        console.warn('[Capacity UI] Primary path 404, trying fallback /api/index?_path=...');
+        capResp = await postTo(`${apiBase}/api/index?_path=/api/v1/analyze/capacity`);
+      }
+
+      if (!capResp.ok) {
+        const text = await capResp.text().catch(() => '');
+        throw new Error(text || `Capacity API error (status ${capResp.status})`);
+      }
+
+      const capJson = await capResp.json();
+      setTeamTotal(capJson.team_total || 0);
+      setResults(capJson.results || []);
+      setLoading(false);
+    } catch (err: any) {
+      console.error('[Capacity UI] Error:', err);
+      // Fallback: compute capacity locally from candidates if API fails
+      try {
+        const localResults = candidatesWithLeaves.map((c: any) => {
+          const base = Number(c.base_productive_hours ?? 40);
+          const efficiency = Number(c.efficiency_score ?? 1);
+          const currentLoad = Number(c.current_load ?? 0);
+          const pto = Number(c.pto_hours_this_week ?? 0);
+          const holiday = Number(c.holiday_hours_this_week ?? 0);
+          const available = Math.max(0, Math.round((base * efficiency - currentLoad - pto - holiday) * 100) / 100);
+          return {
+            id: c.id ?? c.name,
+            name: c.name ?? 'Unknown',
+            base_productive_hours: base,
+            efficiency_score: efficiency,
+            current_load: currentLoad,
+            pto_hours_this_week: pto,
+            holiday_hours_this_week: holiday,
+            available_hours: available,
+          };
+        });
+        setResults(localResults);
+        setTeamTotal(localResults.reduce((s, r) => s + (r.available_hours || 0), 0));
+        setError(null);
+      } catch (e) {
+        setError(String(err.message || err));
+      }
+      setLoading(false);
+    }
   };
+
+  useEffect(() => {
+    fetchCapacityData();
+  }, [refreshKey, approvedLeaves]);
 
   return (
-    <div className={`space-y-4 ${className}`}>
-      {/* Header Section */}
+    <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
-            <div className="p-2 bg-indigo-100 rounded-lg">
-              <Briefcase className="w-5 h-5 text-indigo-700" />
-            </div>
-            {title}
+          <div className="p-2 bg-indigo-100 rounded-lg"><Briefcase className="w-5 h-5 text-indigo-700" /></div>
+          Team Capacity (Jira)
         </h2>
-        {/* Simple Legend */}
-        <div className="hidden sm:flex items-center gap-3 text-xs font-medium text-slate-600 bg-white px-3 py-1.5 rounded-full border border-slate-200">
-           <span className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-blue-500"></div> On Track</span>
-           <span className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-emerald-500"></div> Done</span>
-           <span className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-amber-500"></div> Risk</span>
+        <div className="flex items-center gap-4">
+          <div className="text-sm text-slate-600">Total Available: <strong>{teamTotal}h</strong></div>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => setRefreshKey(prev => prev + 1)}
+            className="flex items-center gap-2"
+          >
+            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+            Refresh
+          </Button>
         </div>
       </div>
 
       <Card className="rounded-xl border border-slate-200 shadow-sm overflow-hidden bg-white">
         <div className="overflow-x-auto">
-          <table className="w-full border-collapse min-w-[800px]">
-            <thead>
-              <tr className="bg-slate-50 border-b border-slate-200">
-                {/* STICKY HEADER: High Z-Index to stay on top */}
-                <th className="p-4 text-left text-xs font-bold text-slate-500 uppercase w-[280px] min-w-[280px] border-r border-slate-200 sticky left-0 bg-slate-50 z-30">
-                  Resource & Skills
-                </th>
-                {DAYS.map(day => (
-                  <th key={day} className="p-4 text-center text-xs font-bold text-slate-500 uppercase min-w-[160px]">
-                    {day}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {employees.map(emp => (
-                <tr key={emp.name} className="group hover:bg-slate-50/50">
-                  
-                  {/* STICKY COLUMN: Resource Name */}
-                  <td className="p-4 border-r border-slate-200 bg-white sticky left-0 z-20 group-hover:bg-slate-50/50 transition-colors">
-                      <div className="flex items-start gap-3">
-                        {/* Simple Avatar Circle */}
-                        <div className="w-10 h-10 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center font-bold text-xs shrink-0 border border-indigo-200">
-                          {getInitials(emp.name)}
-                        </div>
-                        
-                        <div className="min-w-0 flex-1">
-                          <div className="font-bold text-sm text-gray-900 truncate">{emp.name}</div>
-                          <div className="text-xs text-slate-500 mb-2 truncate">{emp.role}</div>
-                          
-                          {/* Skills Pills */}
-                          <div className="flex flex-wrap gap-1">
-                            {emp.skills.slice(0, 3).map(s => (
-                              <span key={s} className="text-[10px] px-1.5 py-0.5 bg-slate-100 text-slate-600 rounded border border-slate-200">
-                                {s}
-                              </span>
-                            ))}
-                          </div>
-                        </div>
-                      </div>
-                  </td>
-
-                  {/* TIMELINE COLUMNS */}
-                  {DAYS.map((_, dayIndex) => {
-                    const dayTasks = tasks.filter(t => t.assignee === emp.name && t.day === dayIndex && !t.isCancelled);
-                    const totalHours = getDailyLoad(emp.name, dayIndex);
-                    
-                    return (
-                      <td key={dayIndex} className="p-2 align-top h-32 border-l border-dashed border-slate-100">
-                        {/* Daily Total Badge */}
-                        {totalHours > 0 ? (
-                          <div className="flex justify-end mb-2">
-                             <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
-                               totalHours > 8 
-                               ? 'bg-rose-50 text-rose-700 border-rose-100' 
-                               : 'bg-emerald-50 text-emerald-700 border-emerald-100'
-                             }`}>
-                                {totalHours}h
-                             </span>
-                          </div>
-                        ) : (
-                          <div className="h-6 mb-2"></div> /* Spacer */
-                        )}
-                        
-                        {/* Tasks List */}
-                        <div className="space-y-2">
-                          {dayTasks.map(t => {
-                             const latestCheckpoint = t.logs && t.logs.length > 0 ? t.logs[0].checkpoint : null;
-                             const statusColor = getStatusColor(t.totalLogged || 0, t.hours);
-
-                             return (
-                              <div 
-                                key={t.id} 
-                                onClick={() => onTaskClick && onTaskClick(t)}
-                                className="relative bg-white rounded border border-slate-200 p-2 shadow-sm hover:border-indigo-400 hover:shadow-md transition-all cursor-pointer"
-                              >
-                                {/* Left Color Strip */}
-                                <div className={`absolute left-0 top-0 bottom-0 w-1 rounded-l ${statusColor}`} />
-
-                                <div className="pl-2.5">
-                                  <div className="flex justify-between items-center mb-1">
-                                    <span className="text-[9px] font-bold text-slate-400 uppercase truncate max-w-[60px]">
-                                      {t.projectName}
-                                    </span>
-                                    <span className="text-[9px] text-slate-400 font-mono">
-                                      {t.totalLogged}/{t.hours}h
-                                    </span>
-                                  </div>
-                                  
-                                  <p className="text-xs font-medium text-gray-800 leading-snug line-clamp-2">
-                                    {t.taskName}
-                                  </p>
-                                  
-                                  {latestCheckpoint && !t.isCancelled && (
-                                    <div className="flex items-center gap-1 mt-1.5 pt-1.5 border-t border-slate-50">
-                                       <CheckCircle2 className="w-3 h-3 text-emerald-500 shrink-0" />
-                                       <span className="text-[9px] text-slate-500 italic truncate">
-                                         {latestCheckpoint}
-                                       </span>
-                                    </div>
-                                  )}
-                                </div>
-                              </div>
-                             );
-                          })}
-                        </div>
-                      </td>
-                    );
-                  })}
+          {loading && <div className="p-6">Loading capacity from Jira...</div>}
+          {error && <div className="p-6 text-rose-600">{error}</div>}
+          {!loading && !error && (
+            <table className="w-full border-collapse min-w-[600px]">
+              <thead>
+                <tr className="bg-slate-50 border-b border-slate-200">
+                  <th className="p-4 text-left text-xs font-bold text-slate-500 uppercase">Employee</th>
+                  <th className="p-4 text-center text-xs font-bold text-slate-500 uppercase">Base Hours</th>
+                  <th className="p-4 text-center text-xs font-bold text-slate-500 uppercase">Current Load</th>
+                  <th className="p-4 text-center text-xs font-bold text-slate-500 uppercase">PTO</th>
+                  <th className="p-4 text-center text-xs font-bold text-slate-500 uppercase">Holiday</th>
+                  <th className="p-4 text-center text-xs font-bold text-slate-500 uppercase">Available</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {results.map(r => (
+                  <tr key={r.id} className="border-b">
+                    <td className="p-4 font-bold text-sm text-gray-800">{r.name}</td>
+                    <td className="p-4 text-center text-sm text-slate-600">{r.base_productive_hours}</td>
+                    <td className="p-4 text-center text-sm text-slate-600">{(r.current_load || 0).toFixed(1)}h</td>
+                    <td className="p-4 text-center text-sm text-slate-600">{r.pto_hours_this_week}h</td>
+                    <td className="p-4 text-center text-sm text-slate-600">{r.holiday_hours_this_week}h</td>
+                    <td className="p-4 text-center font-bold text-indigo-700">{r.available_hours}h</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
         </div>
       </Card>
     </div>
