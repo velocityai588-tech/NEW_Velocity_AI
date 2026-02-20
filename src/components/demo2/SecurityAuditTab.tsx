@@ -449,7 +449,7 @@ export default function SecurityAuditTab({ onJiraConnectionChange }: SecurityAud
               </div>
               <div>
                 <div className="font-semibold text-blue-900">API Key Storage</div>
-                <div className="text-blue-700">Encrypted in Supabase Vault</div>
+                <div className="text-blue-700">Encrypted Environment Variables</div>
               </div>
               <div>
                 <div className="font-semibold text-blue-900">Connection Scope</div>

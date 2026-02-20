@@ -72,7 +72,7 @@ function parseJSONField(jsonStr: string): Record<string, any> {
 
 export async function loadJiraIssuesFromCSV(): Promise<Issue[]> {
   try {
-    // DB-first: read from Supabase
+    // API-first: read from live API
     const dbIssues = await fetchAllIssuesFromDB()
 
     if (dbIssues.length > 0) {

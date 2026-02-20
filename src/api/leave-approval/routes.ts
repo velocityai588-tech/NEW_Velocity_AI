@@ -7,6 +7,7 @@ import {
   type LeaveRequest,
   type ApprovalResult,
 } from "../../lib/leaveApprovalAgent.js"
+import { calculatePTOImpact, type Task, type Candidate, type PTOImpactResponse } from "../../lib/ptoCaculator.js"
 
 const router = express.Router()
 
@@ -206,6 +207,55 @@ router.get("/weights", async (req: Request, res: Response) => {
     console.error("[LeaveApprovalAgent] Error getting weights:", error)
     res.status(500).json({
       error: "Failed to get weights",
+      details: error instanceof Error ? error.message : String(error),
+    })
+  }
+})
+
+/**
+ * POST /api/leave-approval/pto-impact
+ * Calculate PTO impact on task assignment and completion probability
+ * 
+ * Body:
+ * {
+ *   "task": { title, priority, complexity, deadline_hours, skills_required },
+ *   "candidates": [{ id, name, current_load, skills, role_level, avg_completion_time, efficiency_score, base_productive_hours, pto_hours_this_week, holiday_hours_this_week }],
+ *   "start_date": "YYYY-MM-DD"
+ * }
+ */
+router.post("/pto-impact", async (req: Request, res: Response) => {
+  try {
+    const { task, candidates, start_date } = req.body
+
+    // Validate request
+    if (!task || !candidates || !Array.isArray(candidates)) {
+      return res.status(400).json({
+        error: "Invalid request. Required: task object, candidates array, start_date",
+      })
+    }
+
+    if (candidates.length === 0) {
+      return res.status(400).json({
+        error: "At least one candidate is required",
+      })
+    }
+
+    console.log(`[PTOCalculator] Calculating PTO impact for '${task.title}' with ${candidates.length} candidates`)
+
+    // Calculate PTO impact
+    const impact: PTOImpactResponse = calculatePTOImpact(
+      task as Task,
+      candidates as Candidate[],
+      start_date
+    )
+
+    console.log(`[PTOCalculator] Analysis complete. Recommended: ${impact.recommended_candidate_id}, Deferral: ${impact.deferral_recommendation}`)
+
+    res.json(impact)
+  } catch (error) {
+    console.error("[PTOCalculator] Error calculating PTO impact:", error)
+    res.status(500).json({
+      error: "Failed to calculate PTO impact",
       details: error instanceof Error ? error.message : String(error),
     })
   }

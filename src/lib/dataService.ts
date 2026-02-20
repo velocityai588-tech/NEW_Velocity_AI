@@ -191,7 +191,7 @@ const projectImages: Record<string, string> = {
 
 /**
  * Load list of projects from Jira only.
- * Reads from Supabase DB first, falls back to live API.
+ * Reads from live API.
  */
 export async function loadProjects(): Promise<ProjectItem[]> {
   console.log('[loadProjects] Starting to fetch projects (DB-first)...');

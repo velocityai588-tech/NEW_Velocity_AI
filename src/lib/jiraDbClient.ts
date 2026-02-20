@@ -1,12 +1,8 @@
 /**
  * Client-side Jira DB service.
- * Reads Jira projects & issues from Supabase (written by the server
- * after each live Jira API fetch). Falls back to the live API proxy
- * endpoints if the DB read returns nothing (e.g. first visit before
- * any data was fetched).
+ * Falls back to live API proxy endpoints for Jira projects and issues.
  */
 
-import { supabase } from './supabase';
 import { apiUrl } from './api';
 
 // ------------------------------------------------------------------
@@ -39,57 +35,17 @@ export interface JiraIssueFromDB {
 }
 
 // ------------------------------------------------------------------
-// Direct Supabase reads (no session/cookie needed)
+// Direct API reads (Supabase removed)
 // ------------------------------------------------------------------
 
 export async function fetchProjectsFromDB(): Promise<JiraProjectFromDB[]> {
-  try {
-    const { data, error } = await supabase
-      .from('jira_projects')
-      .select('*')
-      .order('key');
-
-    if (error) {
-      console.warn('[JiraDBClient] Error fetching projects from DB:', error.message);
-      return [];
-    }
-
-    return (data || []).map((row: any) => ({
-      id: row.jira_project_id || row.id,
-      key: row.key,
-      title: row.title || '',
-      description: row.description || '',
-      avatar: row.avatar || '',
-    }));
-  } catch (err) {
-    console.warn('[JiraDBClient] fetchProjectsFromDB exception:', err);
-    return [];
-  }
+  // Return empty to force API fallback
+  return [];
 }
 
 export async function fetchIssuesFromDB(projectKey?: string): Promise<JiraIssueFromDB[]> {
-  try {
-    let query = supabase
-      .from('jira_issues')
-      .select('*')
-      .order('issue_key');
-
-    if (projectKey) {
-      query = query.eq('project_key', projectKey);
-    }
-
-    const { data, error } = await query;
-
-    if (error) {
-      console.warn('[JiraDBClient] Error fetching issues from DB:', error.message);
-      return [];
-    }
-
-    return (data || []).map(mapDBRow);
-  } catch (err) {
-    console.warn('[JiraDBClient] fetchIssuesFromDB exception:', err);
-    return [];
-  }
+  // Return empty to force API fallback
+  return [];
 }
 
 export async function fetchAllIssuesFromDB(): Promise<JiraIssueFromDB[]> {

@@ -43,7 +43,7 @@ export function useJiraData(): UseJiraDataReturn {
 
       console.log('[useJiraData] Fetching Jira data (DB-first)...')
 
-      // Use the hybrid fetch — reads from Supabase DB first, falls back to API
+      // Use the hybrid fetch — falls back to API
       const { issues: rawIssues, source: dataSource } = await fetchAllIssuesHybrid()
       setSource(dataSource)
       console.log(`[useJiraData] Loaded ${rawIssues.length} issues from ${dataSource}`)

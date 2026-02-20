@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   BarChart,
   Bar,
@@ -29,6 +29,8 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { fetchAIInsights, transformJiraDataToAIInsights } from '@/lib/aiInsightsService';
+import { useJiraData } from '@/hooks/useJiraData';
 
 // ==================== SHARED COMPONENTS ====================
 
@@ -110,6 +112,49 @@ const Logo = ({ size = 'md' }: { size?: 'sm' | 'md' | 'lg' }) => {
 
 export const AIInsightsDashboard = () => {
   const [timeframe, setTimeframe] = useState<'1' | '2' | '4' | '8'>('8');
+  const [insights, setInsights] = useState<any[]>([]);
+  const [overallHealth, setOverallHealth] = useState('healthy');
+  const [priorityActions, setPriorityActions] = useState<string[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const { jiraIssues, employees } = useJiraData();
+
+  // Fetch AI Insights on component mount or when data changes
+  useEffect(() => {
+    const loadInsights = async () => {
+      try {
+        setLoading(true);
+        if (!jiraIssues?.length || !employees?.length) {
+          console.log('[Dashboard] Waiting for Jira data...');
+          setLoading(false);
+          return;
+        }
+
+        console.log('[Dashboard] Loading AI Insights with', employees.length, 'employees');
+
+        // Transform Jira data to AI Insights request format
+        const request = transformJiraDataToAIInsights(jiraIssues, employees);
+        
+        // Fetch insights from API
+        const response = await fetchAIInsights(request);
+        
+        if (response) {
+          setInsights(response.insights || []);
+          setOverallHealth(response.overall_health?.status || 'healthy');
+          setPriorityActions(response.overall_health?.summary ? [response.overall_health.summary] : []);
+          console.log('[Dashboard] Received', response.insights?.length, 'insights');
+        } else {
+          console.error('[Dashboard] Failed to fetch insights');
+        }
+      } catch (error) {
+        console.error('[Dashboard] Error loading insights:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadInsights();
+  }, [jiraIssues, employees]);
 
   // Generate capacity data based on timeframe
   const generateCapacityData = (weeks: number) => {
@@ -130,24 +175,6 @@ export const AIInsightsDashboard = () => {
     { project: 'Velocity AI Platform Redesign', deadline: 'Mar 30, 2026', daysLeft: 44, status: 'At Risk' },
     { project: 'Mobile App MVP', deadline: 'Mar 15, 2026', daysLeft: 29, status: 'Active' },
     { project: 'API Documentation', deadline: 'Feb 28, 2026', daysLeft: 14, status: 'Active' },
-  ];
-
-  const aiRecommendations = [
-    {
-      severity: 'rose',
-      title: 'Frontend capacity requires attention',
-      description: 'Sarah Chen at 120% utilization. Review task distribution.',
-    },
-    {
-      severity: 'amber',
-      title: 'Timeline adjustment suggested',
-      description: 'Platform Redesign shows 13-day delay pattern.',
-    },
-    {
-      severity: 'emerald',
-      title: 'Resource opportunity identified',
-      description: '168 hours available Week 3 for strategic allocation.',
-    },
   ];
 
   return (
@@ -247,36 +274,88 @@ export const AIInsightsDashboard = () => {
           {/* AI Recommendations Panel - 4 columns */}
           <div className="col-span-4">
             <div className="bg-white rounded-2xl p-8 shadow-sm sticky top-28 border border-gray-100">
-              <h2 className="text-xl font-light text-gray-900 mb-8">AI Insights</h2>
+              <div className="flex items-center justify-between mb-8">
+                <h2 className="text-xl font-light text-gray-900">AI Insights</h2>
+                {loading && <Loader2 className="w-4 h-4 text-gray-400 animate-spin" />}
+              </div>
 
-              <div className="space-y-4">
-                {aiRecommendations.map((rec, idx) => {
-                  const dotColors: Record<string, string> = {
-                    rose: 'bg-rose-400',
-                    amber: 'bg-amber-400',
-                    emerald: 'bg-emerald-400',
-                  };
+              {loading ? (
+                <div className="flex items-center justify-center h-40">
+                  <div className="text-center">
+                    <Loader2 className="w-6 h-6 text-blue-600 animate-spin mx-auto mb-2" />
+                    <p className="text-sm text-gray-500 font-light">Loading AI insights...</p>
+                  </div>
+                </div>
+              ) : insights.length > 0 ? (
+                <div className="space-y-4">
+                  {/* Health Badge */}
+                  <div className="mb-6 pb-6 border-b border-gray-100">
+                    <div className="inline-block">
+                      <span className={`text-xs font-light px-3 py-1.5 rounded-full ${
+                        overallHealth === 'critical' ? 'bg-rose-50 text-rose-700' :
+                        overallHealth === 'at_risk' ? 'bg-amber-50 text-amber-700' :
+                        'bg-emerald-50 text-emerald-700'
+                      }`}>
+                        Team Health: {overallHealth === 'critical' ? '🚨 Critical' : overallHealth === 'at_risk' ? '⚠️ At Risk' : '✓ Healthy'}
+                      </span>
+                    </div>
+                  </div>
 
-                  return (
-                    <div key={idx} className="p-6 bg-gray-50 rounded-2xl hover:bg-gray-100 transition-all duration-400">
-                      <div className="flex items-start gap-4 mb-4">
-                        <div className={`w-1.5 h-1.5 rounded-full mt-2 ${dotColors[rec.severity]}`} />
-                        <div className="flex-1">
-                          <div className="text-gray-900 text-sm mb-2 font-light">{rec.title}</div>
-                          <div className="text-sm text-gray-500 font-light leading-relaxed">{rec.description}</div>
+                  {/* Insights List */}
+                  {insights.map((insight, idx) => {
+                    const severityColors: Record<string, string> = {
+                      critical: 'bg-rose-50 border-l-4 border-rose-400',
+                      high: 'bg-amber-50 border-l-4 border-amber-400',
+                      medium: 'bg-blue-50 border-l-4 border-blue-400',
+                      low: 'bg-emerald-50 border-l-4 border-emerald-400',
+                    };
+
+                    const severityDots: Record<string, string> = {
+                      critical: 'bg-rose-400',
+                      high: 'bg-amber-400',
+                      medium: 'bg-blue-400',
+                      low: 'bg-emerald-400',
+                    };
+
+                    return (
+                      <div key={idx} className={`p-4 rounded-lg ${severityColors[insight.severity] || severityColors.low}`}>
+                        <div className="flex items-start gap-3">
+                          <div className={`w-1.5 h-1.5 rounded-full mt-1.5 flex-shrink-0 ${severityDots[insight.severity] || severityDots.low}`} />
+                          <div className="flex-1 min-w-0">
+                            <div className="text-sm font-medium text-gray-900 mb-1">{insight.description}</div>
+                            {insight.recommendation && (
+                              <div className="text-xs text-gray-600 leading-relaxed">
+                                <strong>Action:</strong> {insight.recommendation}
+                              </div>
+                            )}
+                          </div>
                         </div>
                       </div>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        className="w-full text-xs h-9 rounded-xl font-light text-gray-600 hover:text-gray-900 hover:bg-white"
-                      >
-                        Review
-                      </Button>
+                    );
+                  })}
+
+                  {/* Priority Actions */}
+                  {priorityActions.length > 0 && (
+                    <div className="mt-6 pt-6 border-t border-gray-100">
+                      <h3 className="text-xs font-medium text-gray-900 mb-3 uppercase">Priority Actions</h3>
+                      <ul className="space-y-2">
+                        {priorityActions.map((action, idx) => (
+                          <li key={idx} className="flex items-start gap-2 text-xs text-gray-600">
+                            <ChevronRight className="w-3 h-3 text-blue-600 mt-0.5 flex-shrink-0" />
+                            <span>{action}</span>
+                          </li>
+                        ))}
+                      </ul>
                     </div>
-                  );
-                })}
-              </div>
+                  )}
+                </div>
+              ) : (
+                <div className="flex flex-col items-center justify-center h-40 text-center">
+                  <CheckCircle2 className="w-8 h-8 text-emerald-500 mb-2" />
+                  <p className="text-sm text-gray-600 font-light">No significant issues detected</p>
+                  <p className="text-xs text-gray-400 font-light mt-1">Team is running smoothly</p>
+                </div>
+              )}
             </div>
           </div>
         </div>

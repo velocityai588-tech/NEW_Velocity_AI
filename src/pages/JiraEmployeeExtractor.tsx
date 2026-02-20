@@ -93,7 +93,7 @@ export default function JiraEmployeeExtractor() {
 
   const fetchProjects = async () => {
     try {
-      // DB-first: try Supabase, fall back to API
+      // API-first: fetch from live API
       const { projects, source } = await fetchProjectsHybrid()
       console.log(`[JiraEmployeeExtractor] Loaded ${projects.length} projects from ${source}`)
       setAvailableProjects(projects.map(p => ({ key: p.key, title: p.title, id: p.id })))

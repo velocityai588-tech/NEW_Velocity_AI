@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
-import { supabase } from '@/lib/supabase';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -50,10 +49,6 @@ export default function SignUp() {
     try {
       setLoading(true);
       setError('');
-      // Save email to Supabase if provided
-      if (email.trim()) {
-        await saveEmailInterest(email);
-      }
       // signInWithGoogle() redirects to Google, which redirects back to /auth/callback
       // AuthCallback will handle the redirect to /velocity-ai
       await signInWithGoogle();
@@ -67,10 +62,6 @@ export default function SignUp() {
     try {
       setLoading(true);
       setError('');
-      // Save email to Supabase if provided
-      if (email.trim()) {
-        saveEmailInterest(email);
-      }
       // signInWithJira() redirects to Jira OAuth, which redirects back to /velocity-ai
       signInWithJira();
     } catch (err: any) {
@@ -79,32 +70,7 @@ export default function SignUp() {
     }
   };
 
-  const saveEmailInterest = async (emailAddress: string) => {
-    try {
-      console.log('[Email Interest] Attempting to save:', emailAddress);
-      const { data, error } = await supabase
-        .from('email_interests')
-        .insert([
-          {
-            email: emailAddress,
-            source: 'signup_form',
-            created_at: new Date().toISOString(),
-          }
-        ]);
-      if (error) {
-        console.error('[Email Interest] Supabase error:', {
-          message: error.message,
-          code: error.code,
-          details: error.details,
-          hint: error.hint
-        });
-      } else {
-        console.log('[Email Interest] Successfully saved:', data);
-      }
-    } catch (err) {
-      console.error('[Email Interest] Unexpected error:', err);
-    }
-  };
+
 
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -125,9 +91,6 @@ export default function SignUp() {
     }
 
     try {
-      // Save email interest before signing up
-      await saveEmailInterest(email);
-      
       await signUp(email, password);
       setSuccess('Account created! Please check your email (including spam folder) to confirm your account before logging in.');
       // Don't redirect automatically - let user see the email confirmation message

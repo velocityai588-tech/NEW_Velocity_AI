@@ -44,6 +44,8 @@ import { useJiraData } from '../hooks/useJiraData';
 import { fetchProjectsHybrid, fetchAllIssuesHybrid } from '../lib/jiraDbClient';
 import { parseCSV } from '../components/ml-model/RecommendationEngine';
 import { Task, EmployeeProfile } from '../components/leave-management/types';
+import { AIInsightsDisplay } from '@/components/AIInsightsDisplay';
+import { fetchAIInsights, transformJiraDataToAIInsights, AIInsightResponse } from '@/lib/aiInsightsService';
 
 // Fetch Jira connection status using API
 async function fetchJiraStatus() {
@@ -180,6 +182,8 @@ const ModernDashboard = ({ jiraData }: { jiraData: any }) => {
   const [selectedEmployee, setSelectedEmployee] = useState<string>('all');
   const [fromDate, setFromDate] = useState({ month: '01', year: '2025' });
   const [toDate, setToDate] = useState({ month: '03', year: '2025' });
+  const [aiInsights, setAiInsights] = useState<AIInsightResponse | null>(null);
+  const [aiInsightsLoading, setAiInsightsLoading] = useState(false);
   
   // Generate capacity data from Jira issues for the selected date range
   const generateCapacityData = useMemo(() => {
@@ -618,6 +622,30 @@ const ModernDashboard = ({ jiraData }: { jiraData: any }) => {
     fetchData();
   }, []);
 
+  // Fetch AI insights when Jira data loads
+  useEffect(() => {
+    const fetchInsights = async () => {
+      if (!jiraIssues || jiraIssues.length === 0 || !employees || employees.length === 0) {
+        setAiInsights(null);
+        return;
+      }
+
+      setAiInsightsLoading(true);
+      try {
+        const insightRequest = transformJiraDataToAIInsights(jiraIssues, employees);
+        const response = await fetchAIInsights(insightRequest);
+        setAiInsights(response);
+      } catch (error) {
+        console.error('Error fetching AI insights:', error);
+        setAiInsights(null);
+      } finally {
+        setAiInsightsLoading(false);
+      }
+    };
+
+    fetchInsights();
+  }, [jiraIssues, employees]);
+
   return (
     <div className="bg-gray-50 min-h-screen p-12 font-['Inter',sans-serif]">
       <div className="max-w-[1600px] mx-auto space-y-12">
@@ -863,90 +891,99 @@ const ModernDashboard = ({ jiraData }: { jiraData: any }) => {
         </div>
       </div>
 
-      {/* Gantt Timeline View */}
-      <div className="">
-        <h2 className="text-xl font-light text-gray-900 mb-8">All Projects</h2>
-        {jiraData && jiraData.projects && jiraData.projects.length > 0 ? (
-          <div className="grid grid-cols-1 gap-4">
-            {jiraData.projects.map((project: any) => {
-              // Count issues for this project
-              const projectIssues = jiraIssues.filter((issue: any) => 
-                issue.projectKey === project.key || issue.project === project.key
-              );
-              
-              const completedCount = projectIssues.filter((i: any) => 
-                i.status?.toLowerCase?.()?.includes('done') ||
-                i.status?.toLowerCase?.()?.includes('completed') ||
-                i.status?.toLowerCase?.()?.includes('closed')
-              ).length;
-              
-              const healthScore = projectIssues.length > 0 
-                ? Math.round((completedCount / projectIssues.length) * 100)
-                : 0;
-              
-              // Get team members
-              const team = Array.from(new Set(
-                projectIssues.map((i: any) => i.assignee).filter((a: any) => a && a !== 'Unassigned')
-              )) as string[];
-
-              // Get latest due date
-              const dueDates = projectIssues
-                .filter((i: any) => i.due)
-                .map((i: any) => new Date(i.due).getTime());
-              
-              const endDate = dueDates.length > 0 
-                ? new Date(Math.max(...dueDates))
-                : undefined;
-
-              // Determine health color
-              let healthColor = '#3b82f6'; // default blue
-              if (healthScore >= 80) healthColor = '#10b981'; // green
-              else if (healthScore >= 50) healthColor = '#f59e0b'; // amber
-              else healthColor = '#ef4444'; // red
-
-              return (
-                <div key={project.key} className="bg-white rounded-lg p-4 border border-gray-200 hover:border-gray-300 transition-all">
-                  <div className="flex items-center justify-between gap-4">
-                    <div className="flex-1">
-                      <h4 className="font-medium text-gray-900">{project.name || project.title} ({project.key})</h4>
-                      <p className="text-xs text-gray-500 mt-1">
-                        {projectIssues.length} issues · {endDate ? `Ends ${endDate.toLocaleDateString()}` : 'No date'}
-                      </p>
-                    </div>
-                    
-                    <div className="flex items-center gap-4">
-                      <div className="text-right min-w-fit">
-                        <p className="text-xs text-gray-600">Progress</p>
-                        <p className="text-sm font-light text-gray-900">{completedCount}/{projectIssues.length}</p>
-                      </div>
-                      
-                      <div className="w-16 bg-gray-200 rounded-full h-2">
-                        <div
-                          className="h-2 rounded-full transition-all"
-                          style={{ width: `${healthScore}%`, backgroundColor: healthColor }}
-                        ></div>
-                      </div>
-                      
-                      <div className="text-right min-w-fit">
-                        <p className="text-xs text-gray-600">Health</p>
-                        <p className="text-sm font-medium" style={{ color: healthColor }}>
-                          {healthScore}%
-                        </p>
-                      </div>
-                      
-                      <div className="text-right min-w-fit">
-                        <p className="text-xs text-gray-600">Team</p>
-                        <p className="text-sm font-medium text-gray-900">{team.length}</p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
+      {/* AI Insights or Projects View */}
+      <div>
+        {aiInsights ? (
+          <div>
+            <h2 className="text-xl font-light text-gray-900 mb-8">AI Insights & Recommendations</h2>
+            <AIInsightsDisplay insights={aiInsights} loading={aiInsightsLoading} />
           </div>
         ) : (
-          <div className="bg-white rounded-lg p-8 text-center border border-gray-200">
-            <p className="text-gray-500 text-sm">No projects available</p>
+          <div>
+            <h2 className="text-xl font-light text-gray-900 mb-8">All Projects</h2>
+            {jiraData && jiraData.projects && jiraData.projects.length > 0 ? (
+              <div className="grid grid-cols-1 gap-4">
+                {jiraData.projects.map((project: any) => {
+                  // Count issues for this project
+                  const projectIssues = jiraIssues.filter((issue: any) => 
+                    issue.projectKey === project.key || issue.project === project.key
+                  );
+                  
+                  const completedCount = projectIssues.filter((i: any) => 
+                    i.status?.toLowerCase?.()?.includes('done') ||
+                    i.status?.toLowerCase?.()?.includes('completed') ||
+                    i.status?.toLowerCase?.()?.includes('closed')
+                  ).length;
+                  
+                  const healthScore = projectIssues.length > 0 
+                    ? Math.round((completedCount / projectIssues.length) * 100)
+                    : 0;
+                  
+                  // Get team members
+                  const team = Array.from(new Set(
+                    projectIssues.map((i: any) => i.assignee).filter((a: any) => a && a !== 'Unassigned')
+                  )) as string[];
+
+                  // Get latest due date
+                  const dueDates = projectIssues
+                    .filter((i: any) => i.due)
+                    .map((i: any) => new Date(i.due).getTime());
+                  
+                  const endDate = dueDates.length > 0 
+                    ? new Date(Math.max(...dueDates))
+                    : undefined;
+
+                  // Determine health color
+                  let healthColor = '#3b82f6'; // default blue
+                  if (healthScore >= 80) healthColor = '#10b981'; // green
+                  else if (healthScore >= 50) healthColor = '#f59e0b'; // amber
+                  else healthColor = '#ef4444'; // red
+
+                  return (
+                    <div key={project.key} className="bg-white rounded-lg p-4 border border-gray-200 hover:border-gray-300 transition-all">
+                      <div className="flex items-center justify-between gap-4">
+                        <div className="flex-1">
+                          <h4 className="font-medium text-gray-900">{project.name || project.title} ({project.key})</h4>
+                          <p className="text-xs text-gray-500 mt-1">
+                            {projectIssues.length} issues · {endDate ? `Ends ${endDate.toLocaleDateString()}` : 'No date'}
+                          </p>
+                        </div>
+                        
+                        <div className="flex items-center gap-4">
+                          <div className="text-right min-w-fit">
+                            <p className="text-xs text-gray-600">Progress</p>
+                            <p className="text-sm font-light text-gray-900">{completedCount}/{projectIssues.length}</p>
+                          </div>
+                          
+                          <div className="w-16 bg-gray-200 rounded-full h-2">
+                            <div
+                              className="h-2 rounded-full transition-all"
+                              style={{ width: `${healthScore}%`, backgroundColor: healthColor }}
+                            ></div>
+                          </div>
+                          
+                          <div className="text-right min-w-fit">
+                            <p className="text-xs text-gray-600">Health</p>
+                            <p className="text-sm font-medium" style={{ color: healthColor }}>
+                              {healthScore}%
+                            </p>
+                          </div>
+                          
+                          <div className="text-right min-w-fit">
+                            <p className="text-xs text-gray-600">Team</p>
+                            <p className="text-sm font-medium text-gray-900">{team.length}</p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="bg-white rounded-lg p-8 text-center border border-gray-200">
+                <p className="text-gray-500 text-sm">No projects available</p>
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -1049,16 +1086,16 @@ export default function VelocityAI() {
     checkJiraAuth();
   }, []);
 
-  // Protect route - allow if either Supabase user OR Jira is authenticated
+  // Protect route - allow if Jira is authenticated
   useEffect(() => {
     if (!authLoading && authCheckDone) {
       const isAuthenticated = user || jiraAuthStatus;
       
       if (!isAuthenticated) {
-        console.log('[VelocityAI] User not authenticated (no Supabase user and no Jira auth), redirecting to login');
+        console.log('[VelocityAI] User not authenticated (no Jira auth), redirecting to login');
         navigate('/login', { replace: true });
       } else {
-        console.log('[VelocityAI] User authenticated via:', user ? 'Supabase' : 'Jira');
+        console.log('[VelocityAI] User authenticated via Jira');
       }
     }
   }, [user, authLoading, jiraAuthStatus, authCheckDone, navigate]);

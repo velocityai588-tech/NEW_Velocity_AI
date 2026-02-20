@@ -3,6 +3,8 @@ import cors from 'cors';
 import session from 'express-session';
 import jiraRoutes from '../src/api/jira/routes.js';
 import leaveApprovalRoutes from '../src/api/leave-approval/routes.js';
+import analyzeRoutes from '../src/api/analyze/routes.js';
+import aiInsightsRoutes from '../src/api/analyze/ai-insights-routes.js';
 
 // Create a fresh Express app instance for this serverless function
 const app = express();
@@ -70,6 +72,8 @@ app.get('/health', (_req: Request, res: Response) => {
 // Mount API routers with /api prefix to match the expected routes
 app.use('/api/jira', jiraRoutes);
 app.use('/api/leave-approval', leaveApprovalRoutes);
+app.use('/api/v1/analyze', analyzeRoutes);
+app.use('/api/v1', aiInsightsRoutes);
 
 // Also mount at root level for backwards compatibility
 app.use('/jira', jiraRoutes);

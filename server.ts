@@ -48,6 +48,8 @@ async function initializeRedis() {
 import jiraRoutes from "./src/api/jira/routes.js"
 import deployedRoutes from "./src/api/deployed/routes.js"
 import leaveApprovalRoutes from "./src/api/leave-approval/routes.js"
+import analyzeRoutes from "./src/api/analyze/routes.js"
+import aiInsightsRoutes from "./src/api/analyze/ai-insights-routes.js"
 const app = express()
 
 console.log("typeof express:", typeof express)
@@ -171,6 +173,14 @@ console.log('[Server] Deployed routes mounted');
 // ============ Leave Approval Agent Routes ============
 app.use('/api/leave-approval', leaveApprovalRoutes);
 console.log('[Server] Leave Approval Agent routes mounted');
+
+// ============ Team Capacity Analysis Routes ============
+app.use('/api/v1/analyze', analyzeRoutes);
+console.log('[Server] Team Capacity Analysis routes mounted');
+
+// ============ AI Insights Routes ============
+app.use('/api/v1', aiInsightsRoutes);
+console.log('[Server] AI Insights routes mounted');
 
 // try {
 //   const stack = (hubspotRoutes as any)?.stack || []

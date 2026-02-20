@@ -2,7 +2,6 @@ import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ArrowRight, Sparkles } from "lucide-react";
-import { supabase } from "@/lib/supabase";
 
 export const Hero = () => {
   const [email, setEmail] = useState("");
@@ -24,65 +23,30 @@ export const Hero = () => {
       const emailTrimmed = email.toLowerCase().trim();
       console.log('[Waitlist] Attempting to save email:', emailTrimmed);
       
-      // Try API route first (more reliable across regions)
-      try {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout
-        
-        const apiResponse = await fetch('/api/waitlist', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email: emailTrimmed }),
-          signal: controller.signal
-        });
-        
-        clearTimeout(timeoutId);
-        
-        if (apiResponse.ok) {
-          console.log('[Waitlist] Email saved via API');
-          setMessage("Thanks for joining! Check your email for updates.");
-          setEmail("");
-          setTimeout(() => setMessage(""), 5000);
-          return;
-        }
-      } catch (apiErr: any) {
-        console.error('[Waitlist] API route error:', apiErr.message);
-        // Fall through to Supabase if API fails
-      }
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout
       
-      // Fallback: Try Supabase directly
-      console.log('[Waitlist] Trying Supabase fallback...');
-      const { data, error } = await supabase
-        .from("waitlist")
-        .insert([{ 
-          email: emailTrimmed,
-          created_at: new Date().toISOString(),
-          source: "homepage_hero"
-        }])
-        .select();
+      const apiResponse = await fetch('/api/waitlist', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: emailTrimmed }),
+        signal: controller.signal
+      });
       
-      if (error) {
-        console.error('[Waitlist] Supabase error:', {
-          message: error.message,
-          code: error.code,
-          details: error.details,
-          hint: error.hint
-        });
-        
-        // Check if it's a duplicate email error
-        if (error.code === '23505' || error.message?.includes('unique')) {
-          setMessage("You've already joined the waitlist!");
-        } else {
-          setMessage(`Failed to join waitlist: ${error.message || 'Please try again later.'}`);
-        }
-      } else {
-        console.log('[Waitlist] Email saved successfully:', data);
+      clearTimeout(timeoutId);
+      
+      if (apiResponse.ok) {
+        console.log('[Waitlist] Email saved via API');
         setMessage("Thanks for joining! Check your email for updates.");
         setEmail("");
         setTimeout(() => setMessage(""), 5000);
+        return;
+      } else {
+        const errorData = await apiResponse.json().catch(() => ({}));
+        setMessage(errorData.message || "Failed to join waitlist. Please try again.");
       }
     } catch (err: any) {
-      console.error('[Waitlist] Unexpected error:', err);
+      console.error('[Waitlist] Error:', err);
       const errorMsg = err?.message || 'Unexpected error. Please try again.';
       setMessage(`Error: ${errorMsg}`);
     } finally {

@@ -55,7 +55,7 @@ export const UserProfile = () => {
 
   const handleLogout = async () => {
     try {
-      // Logout from Supabase if available
+      // Logout from auth
       if (user) {
         await signOut();
       }
@@ -78,7 +78,7 @@ export const UserProfile = () => {
     }
   };
 
-  // Show button if either Supabase user OR Jira connected
+  // Show button if either user is connected or Jira is connected
   if (!user && !jiraStatus?.connected) return null;
 
   // Determine display info based on auth source

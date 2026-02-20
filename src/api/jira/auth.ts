@@ -1,11 +1,7 @@
-// src/api/jira/auth.ts
-// Implements OAuth2 Authorization Code flow (3-legged OAuth) for Jira Cloud
-// Multi-tenant SaaS implementation - each user connects their own Jira account
 import fetch from 'node-fetch';
 import { URLSearchParams } from 'url';
 import * as crypto from 'crypto';
 import { Request, Response } from 'express';
-import { createClient } from '@supabase/supabase-js';
 
 // Extend express-session SessionData to include Jira properties
 declare module 'express-session' {
@@ -91,25 +87,6 @@ interface JiraResource {
   scopes: string[];
 }
 
-// Lazy-initialize Supabase client to ensure env vars are loaded
-let supabase: any = null;
-
-function getSupabaseClient() {
-  if (!supabase) {
-    const supabaseUrl = process.env.SUPABASE_URL || '';
-    const supabaseKey = process.env.SUPABASE_ANON_KEY || '';
-    
-    if (!supabaseUrl || !supabaseKey) {
-      console.warn('[Supabase] Missing SUPABASE_URL or SUPABASE_ANON_KEY environment variables');
-      return null;
-    }
-    
-    supabase = createClient(supabaseUrl, supabaseKey);
-    console.log('[Supabase] Client initialized');
-  }
-  return supabase;
-}
-
 // Generate PKCE parameters
 function generatePKCE(): PKCE {
   const codeVerifier = crypto.randomBytes(32).toString('base64url');
@@ -118,11 +95,10 @@ function generatePKCE(): PKCE {
 }
 
 // In-memory token store (map user session -> token store)
-// For production, use database with encryption (Supabase Vault, etc.)
+// For production, use database with encryption (e.g., Redis or encrypted session storage)
 const jiraTokens: Map<string, TokenStore> = new Map();
 
-// In-memory PKCE state store - for local dev only
-// In production (Vercel), PKCE data is stored in Supabase
+// In-memory PKCE state store
 const jiraPKCEStore: Map<string, { codeVerifier: string; timestamp: number }> = new Map();
 
 function cleanupExpiredPKCE() {
@@ -137,87 +113,33 @@ function cleanupExpiredPKCE() {
   }
 }
 
-// Run cleanup every 5 minutes (local dev only)
+// Run cleanup every 5 minutes
 setInterval(() => cleanupExpiredPKCE(), 5 * 60 * 1000);
 
-// Store PKCE in Supabase for serverless compatibility
+// Store PKCE in memory
 async function storePKCEInDatabase(state: string, codeVerifier: string): Promise<void> {
   try {
-    const supabaseClient = getSupabaseClient();
-    if (!supabaseClient) {
-      console.log('[Jira OAuth] Supabase not configured, using in-memory store only');
-      // Fallback to in-memory storage
-      jiraPKCEStore.set(state, { codeVerifier, timestamp: Date.now() });
-      return;
-    }
-
-    const { error } = await supabaseClient
-      .from('jira_oauth_pkce')
-      .insert({
-        state,
-        code_verifier: codeVerifier,
-        created_at: new Date().toISOString(),
-        expires_at: new Date(Date.now() + 15 * 60 * 1000).toISOString() // 15 min expiry
-      });
-
-    if (error) {
-      console.warn('[Jira OAuth] Failed to store PKCE in Supabase, falling back to memory:', error);
-      jiraPKCEStore.set(state, { codeVerifier, timestamp: Date.now() });
-    } else {
-      console.log('[Jira OAuth] PKCE stored in Supabase');
-    }
+    jiraPKCEStore.set(state, { codeVerifier, timestamp: Date.now() });
+    console.log('[Jira OAuth] PKCE stored in memory');
   } catch (err) {
     console.warn('[Jira OAuth] Error storing PKCE:', err);
-    // Fallback to in-memory
-    jiraPKCEStore.set(state, { codeVerifier, timestamp: Date.now() });
   }
 }
 
-// Retrieve PKCE from Supabase (or memory as fallback)
+// Retrieve PKCE from memory
 async function retrievePKCEFromDatabase(state: string): Promise<string | null> {
   try {
-    const supabaseClient = getSupabaseClient();
-    if (!supabaseClient) {
-      console.log('[Jira OAuth] Supabase not configured, checking in-memory store');
-      const data = jiraPKCEStore.get(state);
-      return data?.codeVerifier || null;
-    }
-
-    const { data, error } = await supabaseClient
-      .from('jira_oauth_pkce')
-      .select('code_verifier')
-      .eq('state', state)
-      .single();
-
-    if (error) {
-      console.warn('[Jira OAuth] PKCE not found in Supabase:', error.message);
-      // Check in-memory as fallback
-      const memData = jiraPKCEStore.get(state);
-      if (memData) {
-        console.log('[Jira OAuth] Found PKCE in memory store');
-        return memData.codeVerifier;
-      }
-      return null;
-    }
-
+    const data = jiraPKCEStore.get(state);
     if (data) {
-      console.log('[Jira OAuth] Retrieved PKCE from Supabase');
+      console.log('[Jira OAuth] Retrieved PKCE from memory');
       // Delete after retrieval (one-time use)
-      await supabaseClient
-        .from('jira_oauth_pkce')
-        .delete()
-        .eq('state', state)
-        .catch(err => console.warn('[Jira OAuth] Failed to cleanup PKCE:', err));
-      
-      return data.code_verifier;
+      jiraPKCEStore.delete(state);
+      return data.codeVerifier;
     }
-
     return null;
   } catch (err) {
     console.warn('[Jira OAuth] Error retrieving PKCE:', err);
-    // Check in-memory as fallback
-    const memData = jiraPKCEStore.get(state);
-    return memData?.codeVerifier || null;
+    return null;
   }
 }
 
@@ -284,45 +206,13 @@ async function getJiraUserInfo(accessToken: string, tokenData?: any): Promise<an
   }
 }
 
-// Store Jira user in Supabase
+// Store Jira user in session
 async function saveJiraUserToSupabase(jiraUser: any, tokenData: any): Promise<void> {
-  try {
-    const supabaseClient = getSupabaseClient();
-    if (!supabaseClient) {
-      console.warn('[Supabase] Supabase not configured, skipping user save');
-      return;
-    }
-
-    const { data, error } = await supabaseClient
-      .from('jira_users')
-      .upsert(
-        {
-          jira_id: jiraUser.account_id,
-          email: jiraUser.email,
-          display_name: jiraUser.name,
-          avatar_url: jiraUser.picture,
-          jira_token_data: {
-            access_token: tokenData.access_token,
-            refresh_token: tokenData.refresh_token,
-            expires_in: tokenData.expires_in,
-            stored_at: new Date().toISOString()
-          },
-          auth_provider: 'jira',
-          updated_at: new Date().toISOString()
-        },
-        { onConflict: 'jira_id' }
-      );
-
-    if (error) {
-      console.error('[Supabase] Error saving Jira user:', error);
-      throw error;
-    }
-
-    console.log('[Supabase] Jira user saved:', { jira_id: jiraUser.account_id, email: jiraUser.email });
-  } catch (error) {
-    console.error('[Supabase] Failed to save Jira user:', error);
-    // Don't throw - continue anyway, auth still works even if Supabase save fails
-  }
+  // Placeholder - session storage handled by express-session
+  console.log('[Jira] User data stored in session:', { 
+    jira_id: jiraUser.account_id, 
+    email: jiraUser.email 
+  });
 }
 
 // Initiate OAuth flow
@@ -340,8 +230,8 @@ async function login(req: Request, res: Response): Promise<void> {
       timestamp: new Date().toISOString()
     });
 
-    // Store PKCE data in Supabase (for serverless/Vercel compatibility)
-    // Falls back to in-memory if Supabase is not configured
+    // Store PKCE data in memory
+    // For production with multiple instances, consider using Redis or session storage
     await storePKCEInDatabase(state, codeVerifier);
 
     // Also store PKCE data in session as backup
@@ -558,15 +448,15 @@ async function callback(req: Request, res: Response): Promise<any> {
       });
     });
     
-    // Fetch and save Jira user info to Supabase
+    // Fetch and save Jira user info to session
     try {
       console.log('[Jira OAuth Callback] Fetching user info...');
       const jiraUser = await getJiraUserInfo(tokenResp.access_token, tokenResp);
       await saveJiraUserToSupabase(jiraUser, tokenResp);
-      console.log('[Jira OAuth Callback] ✓ User saved to Supabase');
+      console.log('[Jira OAuth Callback] ✓ User stored in session');
     } catch (error) {
-      console.warn('[Jira OAuth Callback] Warning - could not save user to Supabase:', error);
-      // Continue anyway - auth still works without Supabase save
+      console.warn('[Jira OAuth Callback] Warning - could not save user to session:', error);
+      // Continue anyway - auth still works without session save
     }
 
     console.log('[Jira OAuth Callback] ✓ Authentication complete! Redirecting...');

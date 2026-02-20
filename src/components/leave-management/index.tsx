@@ -14,11 +14,10 @@ import { Task, LeaveRequest, TimeLog, EmployeeProfile } from './types';
 import { ImpactAnalysisDialog } from './ImpactAnalysisDialog';
 import { TimeLoggingDialog } from './TimeLoggingDialog';
 import { TimesheetUploadDialog } from './TimeSheetUploadDialog';
-import { WorkloadTable } from './WorkloadTable';
-import { LeaveRequestTable } from './LeaveRequestTable';
 import { LeaveApplicationDialog } from './LeaveApplicationDialog';
 import { EmployeeLeavePortal } from './EmployeeLeavePortal';
 import { LeaveNotificationPanel } from './LeaveNotificationPanel';
+import { TeamCapacityPanel } from './TeamCapacityPanel';
 import LeaveApprovalAgent from '../leave-approval/LeaveApprovalAgent';
 
 // FIX: Import 'fetchRawCSV' to get the actual Task data, not the ML Summary
@@ -654,19 +653,45 @@ export default function LeaveManagementTab() {
         </div>
       )}
 
-      {/* Manager View - Team Workload */}
+      {/* Manager View - Team Capacity Analysis */}
       {activePersona === 'manager' && (
         <div className="animate-in fade-in slide-in-from-right-4 duration-500">
           <div className="bg-white border-2 border-slate-200 rounded-2xl p-6 shadow-lg">
             <h3 className="text-xl font-light text-slate-900 mb-4 flex items-center gap-2">
-              👥 Team Workload Overview
+              📊 Team Capacity Overview
             </h3>
-            <WorkloadTable 
-              tasks={tasks}
-              employees={employees}
-              persona="manager"
-              onTaskClick={handleTaskClick}
-            />
+            
+            {employees && employees.length > 0 ? (
+              <TeamCapacityPanel 
+                candidates={employees.map(emp => ({
+                  id: emp.name,
+                  name: emp.name,
+                  current_load: emp.currentLoaded || 0,
+                  skills: emp.skills || [],
+                  role_level: emp.role || 'employee',
+                  avg_completion_time: 8,
+                  efficiency_score: emp.completionRate || 0.8,
+                  base_productive_hours: 40,
+                  pto_hours_this_week: leaves.filter(l => 
+                    l.name === emp.name && 
+                    l.status === 'Approved' &&
+                    new Date(l.startDate) >= new Date() &&
+                    new Date(l.startDate) <= new Date(new Date().getTime() + 7*24*60*60*1000)
+                  ).reduce((sum, l) => {
+                    const start = new Date(l.startDate);
+                    const end = new Date(l.endDate);
+                    const days = Math.ceil((end.getTime() - start.getTime()) / (1000*60*60*24));
+                    return sum + (days * 8);
+                  }, 0),
+                  holiday_hours_this_week: 0
+                }))}
+                refreshTrigger={leaves.length}
+              />
+            ) : (
+              <div className="text-center py-8 text-slate-500">
+                <p>Loading team capacity data...</p>
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -739,3 +764,9 @@ export default function LeaveManagementTab() {
     </div>
   );
 }
+
+// Export PTOImpactPanel for use in other components
+export { PTOImpactPanel } from './PTOImpactPanel';
+export { usePTOImpact } from '@/hooks/usePTOImpact';
+export { fetchTeamCapacity, convertJiraToCapacityCandidate } from '@/lib/capacityService';
+export { TeamCapacityPanel } from './TeamCapacityPanel';
