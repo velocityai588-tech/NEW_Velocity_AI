@@ -1,4 +1,4 @@
-# ⚡Velocity AI
+# ⚡ Velocity AI
 
 <div align="center">
 
