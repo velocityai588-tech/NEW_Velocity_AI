@@ -18,12 +18,10 @@ const GoogleIcon = () => (
   </svg>
 );
 
-const MicrosoftIcon = () => (
-  <svg width="20" height="20" viewBox="0 0 23 23" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <path fill="#f35325" d="M1 1h10v10H1z"/>
-    <path fill="#81bc06" d="M12 1h10v10H12z"/>
-    <path fill="#05a6f0" d="M1 12h10v10H1z"/>
-    <path fill="#ffba08" d="M12 12h10v10H12z"/>
+const JiraIcon = () => (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path d="M11.53 2C6.46 2.05 2.05 6.46 2 11.53V22h10.47V2h-.94z" fill="#2684FF"/>
+    <path d="M12.94 13.12v8.88h8.88c-.05-4.88-4-8.83-8.88-8.88z" fill="#0052CC"/>
   </svg>
 );
 
@@ -194,9 +192,9 @@ export default function SignUp() {
               onClick={handleJiraSignUp}
               disabled={loading || authLoading}
               className="h-11 border-[#E7E5E4] hover:bg-[#FAFAF9] flex items-center justify-center rounded-lg" 
-              aria-label="Continue with Microsoft"
+              aria-label="Continue with Jira"
             >
-              <MicrosoftIcon />
+              <JiraIcon />
             </Button>
           </div>
 

@@ -16,6 +16,7 @@ declare module 'express-session' {
     jiraCloudId?: string;
     jiraStoreKey?: string;
     jiraCodeVerifier?: string;
+    jiraMagicLinkToken?: string;
     jiraAccessibleResources?: JiraResource[];
     orgId?: string;
     supabaseUserId?: string;
@@ -113,6 +114,109 @@ function getSupabaseClient() {
     console.log('[Supabase] Client initialized');
   }
   return supabase;
+}
+
+// Create or authenticate a Supabase user for Jira OAuth
+async function createOrAuthSupabaseUser(jiraEmail: string, jiraId: string): Promise<{ userId: string; magicLinkToken?: string; session: any } | null> {
+  try {
+    const supabaseClient = getSupabaseClient();
+    if (!supabaseClient) {
+      console.warn('[Supabase Auth] Supabase not configured');
+      return null;
+    }
+
+    const supabaseUrl = process.env.SUPABASE_URL || '';
+    const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
+
+    // If we have a service role key, use admin API to upsert user
+    if (supabaseServiceKey) {
+      try {
+        const { createClient: createAdminClient } = await import('@supabase/supabase-js');
+        const adminClient = createAdminClient(supabaseUrl, supabaseServiceKey);
+
+        console.log('[Supabase Auth] Using admin API to upsert user:', jiraEmail);
+
+        // Try to get existing user first
+        const { data: { users }, error: listError } = await adminClient.auth.admin.listUsers();
+        let existingUser = users?.find(u => u.email === jiraEmail);
+
+        if (!existingUser) {
+          // Create new user with random password (OAuth users don't need passwords)
+          const randomPassword = crypto.randomBytes(32).toString('hex');
+          const { data: newUserData, error: createError } = await adminClient.auth.admin.createUser({
+            email: jiraEmail,
+            password: randomPassword,
+            email_confirm: true, // Automatically confirm email for OAuth users
+            user_metadata: {
+              provider: 'jira',
+              jira_id: jiraId
+            }
+          });
+
+          if (createError) {
+            console.warn('[Supabase Auth] Failed to create user:', createError.message);
+            return null;
+          }
+
+          existingUser = newUserData?.user;
+          console.log('[Supabase Auth] Created new Supabase user:', existingUser?.id);
+        } else {
+          console.log('[Supabase Auth] Found existing Supabase user:', existingUser.id);
+          // Update user metadata with Jira info
+          await adminClient.auth.admin.updateUserById(existingUser.id, {
+            user_metadata: {
+              ...(existingUser.user_metadata || {}),
+              provider: 'jira',
+              jira_id: jiraId
+            }
+          });
+        }
+
+        if (!existingUser) {
+          console.error('[Supabase Auth] No user object returned');
+          return null;
+        }
+
+        // Generate a magic link for the frontend to use for sign-in
+        let magicLinkToken: string | undefined;
+        try {
+          const redirectUrl = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/auth/callback`;
+          
+          const { data: linkData, error: linkError } = await adminClient.auth.admin.generateLink({
+            type: 'magiclink',
+            email: jiraEmail,
+            options: {
+              redirectTo: redirectUrl
+            }
+          });
+
+          if (!linkError && linkData?.properties?.hashed_token) {
+            magicLinkToken = linkData.properties.hashed_token;
+            console.log('[Supabase Auth] Generated magic link token for user');
+          } else {
+            console.warn('[Supabase Auth] Could not generate magic link:', linkError?.message);
+          }
+        } catch (linkErr) {
+          console.warn('[Supabase Auth] Magic link generation failed:', linkErr instanceof Error ? linkErr.message : String(linkErr));
+        }
+
+        console.log('[Supabase Auth] Successfully created/authenticated user:', existingUser.id);
+        return { userId: existingUser.id, magicLinkToken, session: null };
+      } catch (adminErr) {
+        console.warn('[Supabase Auth] Admin API error:', adminErr instanceof Error ? adminErr.message : String(adminErr));
+        // Fall through to non-admin approach
+      }
+    }
+
+    // Fallback: without service role key, we can't create users server-side
+    // Instead, we'll rely on the frontend to call the Supabase SDK after Jira auth
+    // Store the Jira email so the frontend can use magic link
+    console.log('[Supabase Auth] Service role key not available, will rely on frontend to complete Supabase auth');
+    return { userId: null, session: null };
+  } catch (err) {
+    console.error('[Supabase Auth] Error in createOrAuthSupabaseUser:', err instanceof Error ? err.message : String(err));
+    return null;
+  }
 }
 
 // Generate PKCE parameters
@@ -570,6 +674,43 @@ async function callback(req: Request, res: Response): Promise<any> {
       // Use the first accessible resource by default
       const primaryResource = resources[0];
       const cloudId = primaryResource.id;
+
+      // 1. Get Jira user info and create/auth Supabase user
+      console.log('[Jira OAuth Callback] Fetching Jira user info...');
+      let jiraUser: any = null;
+      let finalSupabaseUserId = supabaseUserId; // Use provided supabaseUserId if we have one
+
+      try {
+        jiraUser = await getJiraUserInfo(tokenResp.access_token, tokenResp);
+        console.log('[Jira OAuth Callback] ✓ Jira user info:', { 
+          email: jiraUser?.email, 
+          account_id: jiraUser?.account_id,
+          name: jiraUser?.name 
+        });
+
+        // Create or authenticate Supabase user if we don't have one yet
+        if (!finalSupabaseUserId && jiraUser?.email && jiraUser?.email !== 'unknown@jira.atlassian.net') {
+          console.log('[Jira OAuth Callback] Creating/authenticating Supabase user for:', jiraUser.email);
+          const supabaseAuthResult = await createOrAuthSupabaseUser(jiraUser.email, jiraUser.account_id);
+          if (supabaseAuthResult?.userId) {
+            finalSupabaseUserId = supabaseAuthResult.userId;
+            console.log('[Jira OAuth Callback] ✓ Supabase user created/authenticated:', finalSupabaseUserId);
+            // Store magic link token in session for later use
+            if (supabaseAuthResult.magicLinkToken) {
+              req.session.jiraMagicLinkToken = supabaseAuthResult.magicLinkToken;
+            }
+          } else {
+            console.warn('[Jira OAuth Callback] Failed to create/auth Supabase user, will continue anyway');
+          }
+        }
+
+        // Save Jira user to Supabase as well
+        if (jiraUser && jiraUser.email !== 'unknown@jira.atlassian.net') {
+          await saveJiraUserToSupabase(jiraUser, tokenResp);
+        }
+      } catch (e) {
+        console.warn('[Jira OAuth Callback] Could not fetch Jira user info:', e);
+      }
       
       // --- Multi-tenant: create/find org and store connection in DB ---
       // Import DB helpers (dynamic to avoid circular deps at module level)
@@ -578,49 +719,40 @@ async function callback(req: Request, res: Response): Promise<any> {
       console.log('[Jira OAuth Callback] db module loaded, functions:', Object.keys(db).join(', '));
       let orgId: string | null = null;
 
-      // 1. Check if an org already exists for this Jira cloud site
+      // 2. Check if an org already exists for this Jira cloud site
       console.log('[Jira OAuth Callback] Checking for existing org with cloudId:', cloudId);
       orgId = await db.findOrgByCloudId(cloudId);
       if (orgId) {
         console.log('[Jira OAuth Callback] Found existing org for cloud', cloudId, '→', orgId);
-        // If we have a supabaseUserId and they're not already a member, add them
-        if (supabaseUserId) {
-          const existingMembership = await db.findUserOrg(supabaseUserId);
+        // If we have a finalSupabaseUserId and they're not already a member, add them
+        if (finalSupabaseUserId) {
+          const existingMembership = await db.findUserOrg(finalSupabaseUserId);
           if (!existingMembership || existingMembership.orgId !== orgId) {
-            await db.addOrgMember(orgId, supabaseUserId, 'employee');
+            await db.addOrgMember(orgId, finalSupabaseUserId, 'employee');
           }
         }
       }
 
-      // 2. If no org exists for this cloud site, create one
+      // 3. If no org exists for this cloud site, create one
       if (!orgId) {
         console.log('[Jira OAuth Callback] Creating new org for site:', primaryResource.name);
-        // If we have a supabaseUserId, they become the owner; otherwise create org without owner
+        // If we have a finalSupabaseUserId, they become the owner; otherwise create org without owner
         orgId = await db.createOrganization(
           primaryResource.name || 'My Organization',
-          supabaseUserId || null // pass null if no user
+          finalSupabaseUserId || null // pass null if no user
         );
         console.log('[Jira OAuth Callback] Created org:', orgId);
       }
 
-      // 3. Store Jira connection (tokens) in DB — persists across restarts/serverless
+      // 4. Store Jira connection (tokens) in DB — persists across restarts/serverless
       if (orgId) {
         console.log('[Jira OAuth Callback] Storing Jira connection for org:', orgId);
-        let jiraAccountId: string | undefined;
-        try {
-          const jiraUser = await getJiraUserInfo(tokenResp.access_token, tokenResp);
-          jiraAccountId = jiraUser?.account_id;
-          if (jiraUser && jiraUser.email !== 'unknown@jira.atlassian.net') {
-            await saveJiraUserToSupabase(jiraUser, tokenResp);
-          }
-        } catch (e) {
-          console.warn('[Jira OAuth Callback] Could not fetch Jira user info:', e);
-        }
+        const jiraAccountId = jiraUser?.account_id;
 
         await db.upsertJiraConnection(
           orgId, cloudId, primaryResource.name, primaryResource.url,
           tokenResp.access_token, tokenResp.refresh_token,
-          tokenResp.expires_in, jiraAccountId, supabaseUserId || undefined
+          tokenResp.expires_in, jiraAccountId, finalSupabaseUserId || undefined
         );
         console.log('[Jira OAuth Callback] ✓ Jira connection stored');
 
@@ -629,7 +761,7 @@ async function callback(req: Request, res: Response): Promise<any> {
           await db.upsertJiraConnection(
             orgId, resources[i].id, resources[i].name, resources[i].url,
             tokenResp.access_token, tokenResp.refresh_token,
-            tokenResp.expires_in, jiraAccountId, supabaseUserId || undefined
+            tokenResp.expires_in, jiraAccountId, finalSupabaseUserId || undefined
           );
         }
 
@@ -678,7 +810,7 @@ async function callback(req: Request, res: Response): Promise<any> {
       req.session.jiraUserId = storeKey;
       req.session.jiraStoreKey = storeKey;
       if (orgId) req.session.orgId = orgId;
-      if (supabaseUserId) req.session.supabaseUserId = supabaseUserId;
+      if (finalSupabaseUserId) req.session.supabaseUserId = finalSupabaseUserId;
 
       // Save session before redirecting
       await new Promise<void>((resolve, reject) => {
@@ -695,17 +827,26 @@ async function callback(req: Request, res: Response): Promise<any> {
       const isProduction = process.env.NODE_ENV === 'production' || isVercel;
 
       // Determine redirect URL based on environment and request origin
-      let redirectUrl = 'http://localhost:5173/velocity-ai';
+      // Redirect to auth callback so frontend can complete Supabase auth
+      let baseRedirectUrl = 'http://localhost:5173/auth/callback';
       
       if (req.hostname === 'velocitydevelopment.vercel.app') {
-        redirectUrl = 'https://velocitydevelopment.vercel.app/velocity-ai';
+        baseRedirectUrl = 'https://velocitydevelopment.vercel.app/auth/callback';
       } else if (req.hostname === 'www.joinvelocity.co' || req.hostname === 'joinvelocity.co') {
-        redirectUrl = 'https://www.joinvelocity.co/velocity-ai';
+        baseRedirectUrl = 'https://www.joinvelocity.co/auth/callback';
       } else if (isProduction) {
-        redirectUrl = (process.env.FRONTEND_URL_PROD || 'https://www.joinvelocity.co') + '/velocity-ai';
+        const frontendUrl = process.env.FRONTEND_URL_PROD || 'https://www.joinvelocity.co';
+        baseRedirectUrl = frontendUrl + '/auth/callback';
       } else if (process.env.FRONTEND_URL) {
-        redirectUrl = process.env.FRONTEND_URL + '/velocity-ai';
+        baseRedirectUrl = process.env.FRONTEND_URL + '/auth/callback';
       }
+
+      // Add query parameters for Jira auth
+      const redirectParams = new URLSearchParams({ jira: 'true' });
+      if (req.session.jiraMagicLinkToken) {
+        redirectParams.append('token', req.session.jiraMagicLinkToken);
+      }
+      const redirectUrl = baseRedirectUrl + '?' + redirectParams.toString();
       
       console.log('[Jira OAuth Callback] Determining redirect URL:', {
         isProduction,

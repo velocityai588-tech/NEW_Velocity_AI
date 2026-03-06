@@ -48,6 +48,14 @@ export default function Login() {
   const { signIn, signInWithGoogle, signInWithJira, user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
 
+  // If user is already authenticated, redirect to dashboard
+  useEffect(() => {
+    if (user && !authLoading) {
+      console.log('[Login] User already authenticated, redirecting to velocity-ai');
+      navigate('/velocity-ai', { replace: true });
+    }
+  }, [user, authLoading, navigate]);
+
   useEffect(() => {
     const script = document.createElement('script');
     script.src = 'https://accounts.google.com/gsi/client';
@@ -76,10 +84,11 @@ export default function Login() {
       setLoading(true);
       setError('');
       if (response.credential) {
+        // OAuth flow will redirect away, so we don't need to navigate
         await signInWithGoogle();
-        navigate('/');
       }
     } catch (err: any) {
+      console.error('[Login] Google auth error:', err);
       setError(err.message || 'Failed to sign in with Google');
       setLoading(false);
     }
@@ -89,8 +98,11 @@ export default function Login() {
     try {
       setLoading(true);
       setError('');
+      // OAuth flow will redirect away to Google, then back to /auth/callback
+      // No need to navigate here - the redirect will happen automatically
       await signInWithGoogle();
     } catch (err: any) {
+      console.error('[Login] Google sign-in error:', err);
       setError(err.message || 'Failed to sign in with Google');
       setLoading(false);
     }

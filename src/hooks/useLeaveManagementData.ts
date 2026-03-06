@@ -109,38 +109,42 @@ export function useLeaveManagementData() {
       try {
         let orgId: string | null = null;
         let currentUserEmail = user?.email;
+        let userId = user?.id;
 
-        // Get user email
-        if (!currentUserEmail) {
+        // Get user email and ID from auth
+        if (!currentUserEmail || !userId) {
           const { data: { user: authUser } } = await supabase.auth.getUser();
           currentUserEmail = authUser?.email;
+          userId = authUser?.id;
         }
 
-        // Get org ID from user
-        if (currentUserEmail) {
-          const { data: userData } = await supabase
-            .from('users')
-            .select('organization_id, name')
-            .eq('email', currentUserEmail)
-            .single();
+        // SECURITY: Only allow access if user is a member of an organization
+        // Use organization_members table (the source of truth) instead of users table
+        if (!userId) {
+          throw new Error('User not authenticated. Please log in again.');
+        }
 
-          if (userData?.organization_id) {
-            orgId = userData.organization_id;
-            if (mounted) {
-              setState(prev => ({ ...prev, currentUser: userData.name || currentUserEmail }));
-            }
-          } else {
-            // Fallback org
-            orgId = '3fa59970-ddfa-4ab4-ad00-008c36d32113';
-            if (mounted) {
-              setState(prev => ({ ...prev, currentUser: currentUserEmail }));
-            }
-          }
-        } else if (process.env.NODE_ENV === 'development') {
-          orgId = '3fa59970-ddfa-4ab4-ad00-008c36d32113';
-          if (mounted) {
-            setState(prev => ({ ...prev, currentUser: 'VelocityAI Dev User' }));
-          }
+        const { data: membership, error: membershipError } = await supabase
+          .from('organization_members')
+          .select('org_id, organizations(name)')
+          .eq('user_id', userId)
+          .limit(1)
+          .single();
+
+        if (membershipError || !membership) {
+          console.warn('[LeaveData] User is not a member of any organization:', userId);
+          throw new Error('You are not a member of any organization. Please contact your administrator.');
+        }
+
+        orgId = membership.org_id;
+        const orgName = (membership as any).organizations?.name || 'Your Organization';
+
+        if (mounted) {
+          setState(prev => ({ 
+            ...prev, 
+            currentUser: currentUserEmail || 'User',
+            currentOrgId: orgId
+          }));
         }
 
         if (!orgId) throw new Error('Unable to determine organization.');

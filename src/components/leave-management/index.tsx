@@ -31,6 +31,7 @@ export default function LeaveManagementTab() {
     currentUser,
     currentOrgId,
     isLoading: isLoadingData,
+    error: dataError,
     dataSource,
     refreshLeaves,
     addLeaveRequest,
@@ -122,9 +123,17 @@ export default function LeaveManagementTab() {
       .map(emp => {
         const empTasks = tasks.filter(t => {
           if (t.assignee !== emp.name || t.isCancelled) return false;
-          const start = new Date(t.created_date);
-          const end = new Date(t.due_date);
-          return dateObj >= start && dateObj <= end;
+          // Use due_date to determine if task is active on this date
+          const taskDueStr = t.due_date || t.created_date;
+          if (!taskDueStr) return false;
+          
+          const taskDueDate = new Date(taskDueStr);
+          if (isNaN(taskDueDate.getTime())) return false;
+          
+          // Task is active on this date if due is on or after this date
+          // and it's not more than 14 days in the future (reasonable planning window)
+          const daysFromNow = (taskDueDate.getTime() - dateObj.getTime()) / (1000 * 60 * 60 * 24);
+          return daysFromNow >= -3 && daysFromNow <= 14;
         });
         const currentLoad = empTasks.reduce((sum, t) => sum + (t.hours / 8), 0) * 20; 
         return { name: emp.name, load: Math.min(100, currentLoad) };
@@ -142,14 +151,26 @@ export default function LeaveManagementTab() {
   };
 
   const handleShiftTasks = (leave: LeaveRequest) => {
-    const lStart = new Date(leave.startDate); lStart.setHours(0,0,0,0);
-    const lEnd = new Date(leave.endDate); lEnd.setHours(23,59,59,999);
+    const lStart = new Date(leave.startDate); 
+    lStart.setHours(0,0,0,0);
+    const lEnd = new Date(leave.endDate); 
+    lEnd.setHours(23,59,59,999);
     
     const affectedForShift = tasks.filter(t => {
       if (t.assignee !== leave.name || t.isCancelled) return false;
-      const tStart = new Date(t.created_date);
-      const tEnd = new Date(t.due_date);
-      return tStart <= lEnd && tEnd >= lStart;
+      
+      // Use due_date (when task needs to be complete) instead of created_date
+      const taskDueStr = t.due_date || t.created_date;
+      if (!taskDueStr) return false;
+      
+      const taskDueDate = new Date(taskDueStr);
+      if (isNaN(taskDueDate.getTime())) return false;
+      
+      // Task is affected if it's due within 3 days before leave or within 14 days during/after leave
+      const daysSinceLeavStart = (taskDueDate.getTime() - lStart.getTime()) / (1000 * 60 * 60 * 24);
+      const daysBeforeLeavStart = (lStart.getTime() - taskDueDate.getTime()) / (1000 * 60 * 60 * 24);
+      
+      return daysBeforeLeavStart <= 3 && daysSinceLeavStart <= 14;
     });
     
     setAffectedTasksForShift(affectedForShift);
@@ -258,6 +279,20 @@ export default function LeaveManagementTab() {
     );
   }
 
+  // SECURITY: Check for authorization errors (user not part of organization)
+  if (dataError) {
+    return (
+      <div className="flex flex-col items-center justify-center h-[50vh] space-y-4 p-8">
+        <AlertCircle className="w-8 h-8 text-red-500" />
+        <div className="text-slate-700 font-light text-center max-w-md">
+          <p className="font-semibold">Access Denied</p>
+          <p className="text-sm text-slate-600 mt-2">{dataError}</p>
+          <p className="text-xs text-slate-500 mt-4">Please contact your organization administrator if you believe this is an error.</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="w-full min-h-screen h-full flex flex-col bg-[#FAFAF9] animate-in fade-in duration-500 pb-20 p-12">
       {/* Background Gradient Effect */}
@@ -313,12 +348,56 @@ export default function LeaveManagementTab() {
               ) : (
                 <div className="divide-y divide-gray-100">
                   {leaves.map((leave) => {
+                    // Calculate tasks that are actually affected by the leave period
                     const affectedTasks = tasks.filter(t => {
-                      if (t.assignee !== leave.name || t.isCancelled) return false;
-                      const lStart = new Date(leave.startDate);
-                      const tStart = new Date(t.created_date);
-                      const tEnd = new Date(t.due_date);
-                      return lStart >= tStart && lStart <= tEnd;
+                      // Skip cancelled tasks first
+                      if (t.isCancelled) return false;
+
+                      // Check assignee match (case-insensitive, handle whitespace)
+                      const taskAssigneeNorm = (t.assignee || '').toLowerCase().trim();
+                      const leaveNameNorm = (leave.name || '').toLowerCase().trim();
+                      
+                      // Try exact match first, then fall back to partial name matching
+                      const assigneeMatches = taskAssigneeNorm === leaveNameNorm || 
+                                             taskAssigneeNorm.includes(leaveNameNorm) ||
+                                             leaveNameNorm.includes(taskAssigneeNorm);
+                      
+                      if (!assigneeMatches) {
+                        // Debug: log why this task was filtered out (only on first non-match)
+                        if (t.id === tasks[0]?.id && tasks.length > 0) {
+                          console.debug(`[LeaveMatching] Leave "${leave.name}" not matching task assignees:`, 
+                            tasks.slice(0, 3).map(tt => tt.assignee));
+                        }
+                        return false;
+                      }
+
+                      // Parse leave period
+                      const leaveStart = new Date(leave.startDate);
+                      const leaveEnd = new Date(leave.endDate);
+                      
+                      // Validate leave dates
+                      if (isNaN(leaveStart.getTime()) || isNaN(leaveEnd.getTime())) {
+                        console.warn('[LeaveData] Invalid leave dates:', leave);
+                        return false;
+                      }
+
+                      // Use due_date if available (when task needs to be done), otherwise created_date
+                      const taskDueStr = t.due_date || t.created_date;
+                      if (!taskDueStr) return false; // No date info for this task
+                      
+                      const taskDueDate = new Date(taskDueStr);
+                      if (isNaN(taskDueDate.getTime())) return false; // Invalid date
+                      
+                      // A task is affected if:
+                      // 1. It's due during or after the leave starts
+                      // 2. AND the task due date is within 14 days after leave (reasonable work window)
+                      const daysSinceLeavStart = (taskDueDate.getTime() - leaveStart.getTime()) / (1000 * 60 * 60 * 24);
+                      const daysBeforeLeavStart = (leaveStart.getTime() - taskDueDate.getTime()) / (1000 * 60 * 60 * 24);
+                      
+                      // Task is affected if:
+                      // - Due within 3 days before leave starts (might be ongoing)
+                      // - OR due on/after leave starts (definitely affected)
+                      return daysBeforeLeavStart <= 3 && daysSinceLeavStart <= 14;
                     });
 
                     const durationDays = Math.ceil(
@@ -598,8 +677,45 @@ export default function LeaveManagementTab() {
 
       {/* Approve Dialog */}
       {approveDialogOpen && selectedLeave && (() => {
-        // Calculate dynamic data
-        const durationDays = Math.ceil((new Date(selectedLeave.endDate).getTime() - new Date(selectedLeave.startDate).getTime()) / 86400000) + 1;
+        // Calculate dynamic data with proper date validation
+        const calculateDurationDays = () => {
+          try {
+            // Ensure dates are in YYYY-MM-DD format
+            const startDateStr = typeof selectedLeave.startDate === 'string' ? selectedLeave.startDate.split('T')[0] : '';
+            const endDateStr = typeof selectedLeave.endDate === 'string' ? selectedLeave.endDate.split('T')[0] : '';
+            
+            if (!startDateStr || !endDateStr) {
+              console.warn('[LeaveApproval] Invalid date format:', { startDate: selectedLeave.startDate, endDate: selectedLeave.endDate });
+              return 0;
+            }
+
+            const startDate = new Date(startDateStr);
+            const endDate = new Date(endDateStr);
+            
+            // Validate parsed dates
+            if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
+              console.warn('[LeaveApproval] Invalid date parsing:', { startDateStr, endDateStr });
+              return 0;
+            }
+            
+            // Calculate days (inclusive of both start and end date)
+            const diffMs = endDate.getTime() - startDate.getTime();
+            const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24)) + 1;
+            
+            // Safety check: cap at 365 days
+            if (diffDays > 365) {
+              console.warn('[LeaveApproval] Duration exceeds 1 year:', diffDays);
+              return 365;
+            }
+            
+            return Math.max(1, diffDays); // At least 1 day
+          } catch (error) {
+            console.error('[LeaveApproval] Error calculating duration:', error);
+            return 1;
+          }
+        };
+        
+        const durationDays = calculateDurationDays();
         const totalHoursLost = durationDays * 8;
         const uniqueProjects = [...new Set(affectedTasksForShift.map(t => t.projectName || 'Unknown'))];
         
@@ -619,22 +735,38 @@ export default function LeaveManagementTab() {
               
               <div className="py-6 space-y-6">
                 
-                {/* Capacity Alert */}
-                <div className="p-5 bg-amber-50/50 rounded-2xl border-l-2 border-l-amber-300">
-                  <div className="flex items-start gap-3">
-                    <div className="text-amber-500 mt-0.5">⚠️</div>
-                    <div>
-                      <div className="text-sm text-amber-900 mb-1 font-medium">
-                        Capacity Alert
-                      </div>
-                      <div className="text-sm text-amber-800 font-light leading-relaxed">
-                        Approving this leave will create a{' '}
-                        <span className="font-medium">{totalHoursLost}h capacity gap</span> in {' '}
-                        <span className="font-medium">{uniqueProjects.length} {uniqueProjects.length === 1 ? 'project' : 'projects'}</span>.
+                {/* Capacity Alert - Only Show if there are Affected Tasks */}
+                {affectedTasksForShift.length > 0 ? (
+                  <div className="p-5 bg-amber-50/50 rounded-2xl border-l-2 border-l-amber-300">
+                    <div className="flex items-start gap-3">
+                      <div className="text-amber-500 mt-0.5">⚠️</div>
+                      <div>
+                        <div className="text-sm text-amber-900 mb-1 font-medium">
+                          Capacity Alert
+                        </div>
+                        <div className="text-sm text-amber-800 font-light leading-relaxed">
+                          Approving this leave ({durationDays} {durationDays === 1 ? 'day' : 'days'}) will create a{' '}
+                          <span className="font-medium">{totalHoursLost}h capacity gap</span> in {' '}
+                          <span className="font-medium">{uniqueProjects.length} {uniqueProjects.length === 1 ? 'project' : 'projects'}</span>.
+                        </div>
                       </div>
                     </div>
                   </div>
-                </div>
+                ) : (
+                  <div className="p-5 bg-emerald-50/50 rounded-2xl border-l-2 border-l-emerald-300">
+                    <div className="flex items-start gap-3">
+                      <div className="text-emerald-500 mt-0.5">✓</div>
+                      <div>
+                        <div className="text-sm text-emerald-900 mb-1 font-medium">
+                          No Impact on Assignments
+                        </div>
+                        <div className="text-sm text-emerald-800 font-light leading-relaxed">
+                          This employee has no active tasks during the requested leave period. Safe to approve without capacity concerns.
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
 
                 {/* AI Recommendations */}
                 <div>
