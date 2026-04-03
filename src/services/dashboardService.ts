@@ -245,3 +245,42 @@ export const getNotifications = async () => {
         isRead: false
     }));
 };
+export const getAISuggestions = async (teamId?: string | null) => {
+    try {
+        const orgId = getCurrentOrgId();
+        if (!orgId) return [];
+
+        let query = supabase
+            .from('ai_task_suggestions')
+            .select('*, projects(name), users(name)')
+            .eq('status', 'pending')
+            .order('created_at', { ascending: false })
+            .limit(5);
+
+        if (teamId) {
+            const { data: projects } = await supabase.from('projects').select('id').eq('team_id', teamId);
+            query = query.in('project_id', projects?.map(p => p.id) || []);
+        } else {
+            const { data: projects } = await supabase.from('projects').select('id').eq('organization_id', orgId);
+            query = query.in('project_id', projects?.map(p => p.id) || []);
+        }
+
+        const { data, error } = await query;
+        if (error) throw error;
+        
+        return (data || []).map((s: any) => ({
+            id: s.id,
+            confidence: Math.round((s.confidence_score || 0.85) * 100),
+            category: 'risk',
+            title: s.task_name,
+            reasoning: s.reasoning_justification || s.description || 'Suggested based on recent project activity.',
+            impact: {
+                summary: `Impacts ${s.projects?.name || 'Project'}. Suggested for ${s.users?.name || 'Team member'}.`,
+                hoursImpact: `${s.estimated_hours}h`
+            }
+        }));
+    } catch (error) {
+        console.error('[dashboardService] Failed to fetch AI suggestions:', error);
+        return [];
+    }
+};

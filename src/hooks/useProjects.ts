@@ -1,12 +1,13 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { Project, DraftProjectState } from '@/components/projects/types';
 import { toast } from 'sonner';
 import { setupProgressService } from '@/services/setupProgressService';
+import { getCurrentOrgId } from '@/lib/orgContext';
 
 export function useProjects() {
-  const { user, activeTeamId } = useAuth();
+  const { user, activeTeamId, loading: authLoading } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
   const [projects, setProjects] = useState<Project[]>([]);
 
@@ -14,6 +15,7 @@ export function useProjects() {
   const fetchProjects = useCallback(async (orgId: string, teamId?: string | null) => {
     setIsLoading(true);
     try {
+      console.log(`[useProjects] Fetching for team: ${teamId || 'All'}`);
       let query = supabase
         .from('projects')
         .select(`
@@ -43,7 +45,15 @@ export function useProjects() {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [activeTeamId]);
+
+  // AUTO-REFRESH ON TEAM SWITCH
+  useEffect(() => {
+    const orgId = getCurrentOrgId();
+    if (orgId && user && !authLoading && !document.hidden) {
+      fetchProjects(orgId);
+    }
+  }, [activeTeamId, user, authLoading, fetchProjects]);
 
   // 2. Commit Logic: The "Auto-Magic" Button
   const commitProject = useCallback(async (
@@ -134,4 +144,4 @@ export function useProjects() {
     fetchProjects,
     commitProject
   };
-}
+}

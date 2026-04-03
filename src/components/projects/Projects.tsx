@@ -18,20 +18,6 @@ export default function Projects() {
   
   // 2. Local search state
   const [searchQuery, setSearchQuery] = React.useState('');
-  const [hasFetched, setHasFetched] = React.useState(false);
-
-  // 3. Fetch on mount (Strictly linked to Org ID) - only once and not while hidden
-  useEffect(() => {
-    if (hasFetched || authLoading || !user || document.hidden) {
-      return; // Skip if already fetched, still loading, no user, or page is hidden
-    }
-    
-    const orgId = getCurrentOrgId();
-    if (orgId) {
-      setHasFetched(true);
-      fetchProjects(orgId);
-    }
-  }, [user, authLoading]); // Remove fetchProjects from dependencies
 
   // 4. Client-side filtering
   const filteredProjects = useMemo(() => {

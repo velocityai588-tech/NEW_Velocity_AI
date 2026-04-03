@@ -804,18 +804,28 @@ export const PeopleCapacityScreen = () => {
             const teamIds = targetTeamId ? [targetTeamId] : undefined;
 
             // Fetch team record for empty state invite banner
-            const { data: teamRecord } = await supabase
+            let teamQuery = supabase
                 .from('teams')
                 .select('id, name, invite_code')
-                .eq('organization_id', orgId)
-                .order('created_at', { ascending: true })
-                .limit(1)
-                .single();
+                .eq('organization_id', orgId);
+            
+            if (activeTeamId) {
+                teamQuery = teamQuery.eq('id', activeTeamId);
+            } else {
+                teamQuery = teamQuery.order('created_at', { ascending: true }).limit(1);
+            }
+
+            const { data: teamRecord } = await teamQuery.maybeSingle();
 
             if (teamRecord) {
                 setCurrentTeamId(teamRecord.id);
                 setCurrentTeamName(teamRecord.name || '');
                 setCurrentTeamInviteCode(teamRecord.invite_code || '');
+            } else {
+                // Clear team info if no team found for activeTeamId
+                setCurrentTeamId('');
+                setCurrentTeamName('');
+                setCurrentTeamInviteCode('');
             }
 
             const [members, skills] = await Promise.all([

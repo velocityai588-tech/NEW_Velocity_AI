@@ -20,7 +20,8 @@ import Add from '@mui/icons-material/Add';
 import ViewKanban from '@mui/icons-material/ViewKanban';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
-import { ArrowUpRight, ArrowDownRight, Sparkles } from 'lucide-react';
+import { ArrowUpRight, ArrowDownRight, Sparkles, BrainCircuit } from 'lucide-react';
+import { AISuggestionPanel } from './AISuggestionCard';
 
 const getCurrentWeekMonday = () => {
     const today = new Date();
@@ -44,7 +45,7 @@ export const DashboardScreen = () => {
 
     // Pulling dynamic data directly from your hook
     const {
-        kpis, deadlines, gantt, isLoading,
+        kpis, deadlines, gantt, suggestions, isLoading,
         dateRangeParam, setDateRangeParam,
         tempCustomRange, setTempCustomRange,
         appliedCustomRange, setAppliedCustomRange,
@@ -397,13 +398,23 @@ export const DashboardScreen = () => {
                             <h2 className="text-sm font-semibold text-[#1C1917]">Insights</h2>
                         </div>
                         
-                        <div className="flex flex-col items-center justify-center py-6 text-center">
-                            <Sparkles className="text-[#D6D3D1] mb-1" size={20} />
-                            <p className="text-xs font-medium text-[#78716C] mb-1">No insights yet</p>
-                            <p className="text-xs text-[#A8A29E] max-w-[140px]">
-                                Coming soon
-                            </p>
-                        </div>
+                        {(suggestions && (suggestions as any[]).length > 0) ? (
+                            <div className="animate-in fade-in slide-in-from-right-4 duration-500">
+                                <AISuggestionPanel 
+                                    suggestions={suggestions as any} 
+                                    compact 
+                                    title="AI Insights"
+                                />
+                            </div>
+                        ) : (
+                            <div className="flex flex-col items-center justify-center py-6 text-center">
+                                <BrainCircuit className="text-[#D6D3D1] mb-2" size={24} />
+                                <p className="text-xs font-medium text-[#78716C] mb-1">Analyzing Data...</p>
+                                <p className="text-xs text-[#A8A29E] max-w-[140px]">
+                                    AI insights will appear here as the system identifies patterns.
+                                </p>
+                            </div>
+                        )}
                     </div>
                 </div>
 

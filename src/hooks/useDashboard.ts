@@ -7,7 +7,7 @@ import { useAuth } from '@/contexts/AuthContext';
 export const useDashboard = () => {
     const { activeTeamId } = useAuth();
     const [isLoading, setIsLoading] = useState(true);
-    const [data, setData] = useState({ kpis: [], deadlines: [], gantt: [] });
+    const [data, setData] = useState({ kpis: [], deadlines: [], gantt: [], suggestions: [] });
     
     // Date Range State
     const [dateRangeParam, setDateRangeParam] = useState<string>('30');
@@ -40,8 +40,16 @@ export const useDashboard = () => {
             }
             startDate.setHours(0, 0, 0, 0);
 
-            const result = await getDashboardData({ startDate, endDate, teamId: activeTeamId });
-            setData(result as any);
+            // Fetch both dashboard data and AI suggestions in parallel
+            const [result, suggestions] = await Promise.all([
+                getDashboardData({ startDate, endDate, teamId: activeTeamId }),
+                (async () => {
+                    const { getAISuggestions } = await import('@/services/dashboardService');
+                    return getAISuggestions(activeTeamId);
+                })()
+            ]);
+
+            setData({ ...(result as any), suggestions: suggestions || [] });
             
             // Fetch notifications on load
             const notifs = await getNotifications();
