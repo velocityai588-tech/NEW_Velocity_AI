@@ -2,8 +2,10 @@ import { useState, useEffect } from 'react';
 import { DateRange } from 'react-day-picker';
 import { getDashboardData, getGlobalSearchResults, getNotifications } from '@/services/dashboardService';
 import { toast } from 'sonner';
+import { useAuth } from '@/contexts/AuthContext';
 
 export const useDashboard = () => {
+    const { activeTeamId } = useAuth();
     const [isLoading, setIsLoading] = useState(true);
     const [data, setData] = useState({ kpis: [], deadlines: [], gantt: [] });
     
@@ -38,7 +40,7 @@ export const useDashboard = () => {
             }
             startDate.setHours(0, 0, 0, 0);
 
-            const result = await getDashboardData({ startDate, endDate });
+            const result = await getDashboardData({ startDate, endDate, teamId: activeTeamId });
             setData(result as any);
             
             // Fetch notifications on load
@@ -69,7 +71,7 @@ export const useDashboard = () => {
     // Refetch when applied dates change
     useEffect(() => {
         fetchDashboard();
-    }, [dateRangeParam, appliedCustomRange]);
+    }, [dateRangeParam, appliedCustomRange, activeTeamId]);
 
     const markAllRead = () => {
         setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));

@@ -22,7 +22,7 @@ interface LeaveDataState {
 }
 
 export function useLeaveManagementData() {
-  const { user, loading: authLoading } = useAuth();
+  const { user, loading: authLoading, activeTeamId } = useAuth();
   const [state, setState] = useState<LeaveDataState>({
     tasks: [],
     employees: [],
@@ -59,27 +59,53 @@ export function useLeaveManagementData() {
 
       const orgId = userData.organization_id;
 
-      // 2. Fetch Projects sequential to get IDs for tasks lookup
-      const { data: projects, error: projectsError } = await supabase
+      // 2. Fetch Projects scoped to the active team
+      let projectsQuery = supabase
         .from('projects')
         .select('id, name')
         .eq('organization_id', orgId);
+      
+      if (activeTeamId) {
+        projectsQuery = projectsQuery.eq('team_id', activeTeamId);
+      }
+
+      const { data: projects, error: projectsError } = await projectsQuery;
 
       if (projectsError) throw projectsError;
       const projectIds = projects?.map(p => p.id) || [];
 
       // 3. Execute parallel queries for remaining module data
+      const leavesQuery = supabase
+        .from('leave_requests')
+        .select(`
+          id, organization_id, user_id, leave_type_id, start_date, end_date, reason, status,
+          users!inner ( 
+            name,
+            team_members!inner ( team_id )
+          ),
+          leave_types ( name )
+        `)
+        .eq('organization_id', orgId);
+
+      if (activeTeamId) {
+        leavesQuery.eq('users.team_members.team_id', activeTeamId);
+      }
+
+      const employeesQuery = supabase
+        .from('users')
+        .select(`
+          id, organization_id, email, name, role, capacity_hours_per_week, is_active,
+          team_members!inner ( team_id )
+        `)
+        .eq('organization_id', orgId)
+        .eq('is_active', true);
+
+      if (activeTeamId) {
+        employeesQuery.eq('team_members.team_id', activeTeamId);
+      }
+
       const [leavesRes, balancesRes, tasksRes, employeesRes, leaveTypesRes] = await Promise.all([
-        // Fetch Leave Requests with related User and Leave Type names
-        supabase
-          .from('leave_requests')
-          .select(`
-            id, organization_id, user_id, leave_type_id, start_date, end_date, reason, status,
-            users ( name ),
-            leave_types ( name )
-          `)
-          .eq('organization_id', orgId)
-          .order('created_at', { ascending: false }),
+        leavesQuery.order('created_at', { ascending: false }),
 
         // Fetch Leave Balances for the current user
         supabase
@@ -96,12 +122,7 @@ export function useLeaveManagementData() {
           .select('*')
           .in('project_id', projectIds),
 
-        // Fetch all active employees in the organization
-        supabase
-          .from('users')
-          .select('id, organization_id, email, name, role, capacity_hours_per_week, is_active')
-          .eq('organization_id', orgId)
-          .eq('is_active', true),
+        employeesQuery,
 
         // Fetch ALL Leave Types for the organization to populate dropdowns
         supabase
@@ -170,7 +191,7 @@ export function useLeaveManagementData() {
         isLoading: false 
       }));
     }
-  }, [user]);
+  }, [user, activeTeamId]);
 
   // Initial load when auth is ready
   useEffect(() => {

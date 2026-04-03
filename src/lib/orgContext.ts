@@ -30,6 +30,7 @@ export function clearCurrentOrg() {
   localStorage.removeItem('velocity_org_id');
   localStorage.removeItem('velocity_org_role');
   localStorage.removeItem('velocity_org_name');
+  localStorage.removeItem('velocity_active_team_id');
 }
 
 // --- Org role (owner / manager / employee) ---
@@ -52,4 +53,15 @@ export function setCurrentOrgName(name: string | null) {
 
 export function getCurrentOrgName(): string | null {
   return localStorage.getItem('velocity_org_name');
+}
+
+// --- Active team ---
+
+export function setCurrentTeamId(teamId: string | null) {
+  if (teamId) localStorage.setItem('velocity_active_team_id', teamId);
+  else localStorage.removeItem('velocity_active_team_id');
+}
+
+export function getCurrentTeamId(): string | null {
+  return localStorage.getItem('velocity_active_team_id');
 }

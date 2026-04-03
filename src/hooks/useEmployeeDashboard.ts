@@ -27,7 +27,7 @@ interface UseEmployeeDashboardReturn {
  * Layer 2: Service Layer - calls the API endpoint
  */
 export function useEmployeeDashboard(): UseEmployeeDashboardReturn {
-  const { user, session, orgId } = useAuth();
+  const { user, session, orgId, activeTeamId } = useAuth();
   const [data, setData] = useState<EmployeeDashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -42,8 +42,13 @@ export function useEmployeeDashboard(): UseEmployeeDashboardReturn {
     setError(null);
 
     try {
+      const url = new URL(`${window.location.origin}/api/employee/dashboard`);
+      if (activeTeamId) {
+        url.searchParams.append('teamId', activeTeamId);
+      }
+
       const response = await fetch(
-        `/api/employee/dashboard`,
+        url.toString(),
         {
           method: 'GET',
           headers: {
@@ -72,7 +77,7 @@ export function useEmployeeDashboard(): UseEmployeeDashboardReturn {
     if (user?.id && orgId && session?.access_token) {
       fetchData();
     }
-  }, [user?.id, session?.access_token, orgId]);
+  }, [user?.id, session?.access_token, orgId, activeTeamId]);
 
   return {
     data,

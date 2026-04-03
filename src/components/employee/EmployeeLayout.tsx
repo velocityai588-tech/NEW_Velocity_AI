@@ -24,6 +24,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { useAuth } from '@/contexts/AuthContext';
+import { TeamSwitcher } from '@/components/shared/TeamSwitcher';
 
 const navItems = [
   { path: '/app/employee/dashboard', label: 'Dashboard', Icon: LayoutDashboard },
@@ -67,6 +68,9 @@ export function EmployeeLayout() {
             </span>
           )}
         </div>
+
+        {/* Team Switcher */}
+        <TeamSwitcher collapsed={collapsed} />
 
         {/* Nav Items */}
         <div className="flex-1 w-full flex flex-col gap-1 px-4">

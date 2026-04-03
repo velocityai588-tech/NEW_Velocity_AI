@@ -63,12 +63,14 @@ const AddTeamMemberModal = ({
     open, 
     onOpenChange, 
     onMemberAdded,
-    initialData
+    initialData,
+    activeTeamId
 }: { 
     open: boolean; 
     onOpenChange: (open: boolean) => void; 
     onMemberAdded?: () => void;
     initialData?: { name?: string; email?: string; role?: string } | null;
+    activeTeamId: string | null;
 }) => {
     const [name, setName] = useState('');
     const [role, setRole] = useState('');
@@ -221,18 +223,23 @@ const AddTeamMemberModal = ({
                 return;
             }
 
-            const { data: teams, error: teamsError } = await supabase
-                .from('teams')
-                .select('id')
-                .eq('organization_id', orgId)
-                .limit(1);
+            // Use activeTeamId if available, otherwise fallback to first team
+            const targetTeamId = activeTeamId;
+            let teamId = targetTeamId;
 
-            if (teamsError || !teams || teams.length === 0) {
-                toast.error('No team found for your organization. Please create a team first.');
-                return;
+            if (!teamId) {
+                const { data: teams, error: teamsError } = await supabase
+                    .from('teams')
+                    .select('id')
+                    .eq('organization_id', orgId)
+                    .limit(1);
+
+                if (teamsError || !teams || teams.length === 0) {
+                    toast.error('No team found for your organization. Please create a team first.');
+                    return;
+                }
+                teamId = teams[0].id;
             }
-
-            const teamId = teams[0].id;
             const members = parseCSV(csvData);
 
             if (members.length === 0) {
@@ -318,19 +325,23 @@ Charlie Brown,charlie.brown@company.com,QA Engineer,Selenium Jest Testing,70`;
                 return;
             }
 
-            // Fetch the default team for the organization
-            const { data: teams, error: teamsError } = await supabase
-                .from('teams')
-                .select('id')
-                .eq('organization_id', orgId)
-                .limit(1);
+            // Use activeTeamId if available, otherwise fallback to first team
+            const targetTeamId = activeTeamId;
+            let teamId = targetTeamId;
 
-            if (teamsError || !teams || teams.length === 0) {
-                toast.error('No team found for your organization. Please create a team first.');
-                return;
+            if (!teamId) {
+                const { data: teams, error: teamsError } = await supabase
+                    .from('teams')
+                    .select('id')
+                    .eq('organization_id', orgId)
+                    .limit(1);
+
+                if (teamsError || !teams || teams.length === 0) {
+                    toast.error('No team found for your organization. Please create a team first.');
+                    return;
+                }
+                teamId = teams[0].id;
             }
-
-            const teamId = teams[0].id;
             const finalRole = isCustomRole ? customRole.trim() : role;
 
             // Add team member
@@ -571,7 +582,7 @@ Charlie Brown,charlie.brown@company.com,QA Engineer,Selenium Jest Testing,70`;
 };
 
 export const PeopleCapacityScreen = () => {
-    const { user, orgId, orgRole } = useAuth();
+    const { user, orgId, orgRole, activeTeamId } = useAuth();
     const [selectedPerson, setSelectedPerson] = useState<TeamMemberView | null>(null);
     const [isAddMemberOpen, setIsAddMemberOpen] = useState(false);
     const [voiceMemberData, setVoiceMemberData] = useState<{ name?: string; email?: string; role?: string } | null>(null);
@@ -785,15 +796,12 @@ export const PeopleCapacityScreen = () => {
     };
 
     const loadTeamData = useCallback(async () => {
-        if (!orgId || !user || document.hidden) return; // Skip if page is hidden
+        if (!orgId || !user || document.hidden) return; 
 
         try {
-            let teamIds: string[] | undefined = undefined;
-
-            // If manager, only show their teams
-            if (orgRole === 'manager') {
-                teamIds = await peopleService.fetchUserTeams(user.id);
-            }
+            // Use activeTeamId as the target team context
+            const targetTeamId = activeTeamId;
+            const teamIds = targetTeamId ? [targetTeamId] : undefined;
 
             // Fetch team record for empty state invite banner
             const { data: teamRecord } = await supabase
@@ -833,7 +841,7 @@ export const PeopleCapacityScreen = () => {
         } finally {
             setIsLoading(false);
         }
-    }, [orgId, user, orgRole]);
+    }, [orgId, user, activeTeamId]);
 
     useEffect(() => {
         loadTeamData();
@@ -1057,6 +1065,7 @@ export const PeopleCapacityScreen = () => {
                     }} 
                     onMemberAdded={() => { loadTeamData(); if (orgId) setupProgressService.markStepComplete(orgId, 'team_members_added'); }} 
                     initialData={voiceMemberData}
+                    activeTeamId={activeTeamId}
                 />
 
                 {/* Capacity Summary Strip */}

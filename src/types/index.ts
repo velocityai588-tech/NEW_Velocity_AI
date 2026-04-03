@@ -54,6 +54,13 @@ export interface TeamMember {
     role: string;
 }
 
+/** User's membership in a specific team with a specific role */
+export interface UserTeam {
+    teamId: string;
+    teamName: string;
+    role: string;
+}
+
 /** Project entity — maps to `projects` table */
 export interface Project {
     id: string;

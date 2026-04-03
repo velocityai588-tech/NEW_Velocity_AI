@@ -5,6 +5,7 @@ import type { KPIData, Deadline, GanttMember } from '@/types';
 interface DashboardOptions {
     startDate?: Date;
     endDate?: Date;
+    teamId?: string | null;
 }
 
 export const getDashboardData = async (options?: DashboardOptions) => {
@@ -22,9 +23,20 @@ export const getDashboardData = async (options?: DashboardOptions) => {
             .eq('id', orgId)
             .single();
 
-        const { data: projects } = await supabase.from('projects').select('*').eq('organization_id', orgId);
+        let projectsQuery = supabase.from('projects').select('*').eq('organization_id', orgId);
+        if (options?.teamId) {
+            projectsQuery = projectsQuery.eq('team_id', options.teamId);
+        }
+        const { data: projects } = await projectsQuery;
+
         const { data: allTasks } = await supabase.from('tasks').select('*').in('project_id', projects?.map(p => p.id) || []);
-        const { data: teams } = await supabase.from('teams').select('*').eq('organization_id', orgId);
+        
+        let teamsQuery = supabase.from('teams').select('*').eq('organization_id', orgId);
+        if (options?.teamId) {
+            teamsQuery = teamsQuery.eq('id', options.teamId);
+        }
+        const { data: teams } = await teamsQuery;
+        
         const { data: teamMembers } = await supabase.from('team_members').select('*').in('team_id', teams?.map(t => t.id) || []).eq('status', 'active');
         const { data: users } = await supabase
             .from('users')

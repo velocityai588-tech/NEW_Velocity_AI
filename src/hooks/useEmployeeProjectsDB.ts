@@ -25,7 +25,7 @@ function urgencyGroup(dueDateStr: string | null, today: Date): 'overdue' | 'urge
 // ─── useEmployeeProjectsDB (project list) ───────────────────────────────────
 
 export function useEmployeeProjectsDB() {
-  const { user, orgId } = useAuth();
+  const { user, orgId, activeTeamId } = useAuth();
   const [projectsView, setProjectsView] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -49,7 +49,7 @@ export function useEmployeeProjectsDB() {
       }
 
       // 2. Projects with all tasks + blockers
-      const { data: projects } = await supabase
+      let query = supabase
         .from('projects')
         .select(`
           id, name, start_date, end_date, status,
@@ -59,8 +59,13 @@ export function useEmployeeProjectsDB() {
           )
         `)
         .eq('organization_id', orgId)
-        .in('id', projectIds)
-        .order('end_date', { ascending: true });
+        .in('id', projectIds);
+
+      if (activeTeamId) {
+        query = query.eq('team_id', activeTeamId);
+      }
+
+      const { data: projects } = await query.order('end_date', { ascending: true });
 
       const today = new Date();
       today.setHours(0, 0, 0, 0);
@@ -157,7 +162,7 @@ export function useEmployeeProjectsDB() {
     } finally {
       setIsLoading(false);
     }
-  }, [user?.id, orgId]);
+  }, [user?.id, orgId, activeTeamId]);
 
   useEffect(() => { load(); }, [load]);
 

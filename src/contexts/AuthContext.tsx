@@ -9,7 +9,10 @@ import {
   getCurrentOrgId,
   getCurrentOrgRole,
   getCurrentOrgName,
+  setCurrentTeamId,
+  getCurrentTeamId,
 } from '@/lib/orgContext';
+import { UserTeam } from '@/types';
 
 interface AuthContextType {
   user: User | null;
@@ -28,6 +31,9 @@ interface AuthContextType {
   resetPassword: (email: string) => Promise<void>;
   updatePassword: (newPassword: string) => Promise<void>;
   refreshOrg: () => Promise<void>;
+  userTeams: UserTeam[];
+  activeTeamId: string | null;
+  setActiveTeamId: (teamId: string | null) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -41,6 +47,13 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [orgRole, setOrgRoleState] = useState<string | null>(getCurrentOrgRole());
   const [orgName, setOrgNameState] = useState<string | null>(getCurrentOrgName());
   const [onboardingComplete, setOnboardingComplete] = useState<boolean | null>(null);
+  const [userTeams, setUserTeams] = useState<UserTeam[]>([]);
+  const [activeTeamId, setActiveTeamIdState] = useState<string | null>(getCurrentTeamId());
+
+  const setActiveTeamId = (teamId: string | null) => {
+    setActiveTeamIdState(teamId);
+    setCurrentTeamId(teamId);
+  };
 
   /**
    * Look up the user's org membership from the backend API.
@@ -113,7 +126,47 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       setOrgNameState(organizationName);
       setOnboardingComplete(onboardingDone);
 
+      // --- FETCH TEAM MEMBERSHIPS ---
+      let teams: UserTeam[] = [];
+
+      if (role === 'admin' || role === 'manager') {
+        // Admins and Managers should see all teams in the organization
+        const { data: allTeams } = await supabase
+          .from('teams')
+          .select('id, name')
+          .eq('organization_id', organizationId);
+        
+        teams = (allTeams || []).map(t => ({
+          teamId: t.id,
+          teamName: t.name,
+          role: role // Use their global org role as the team context role
+        }));
+      } else {
+        // Standard employees only see teams they are members of
+        const { data: memberData } = await supabase
+          .from('team_members')
+          .select('team_id, role, teams(name)')
+          .eq('user_id', userId);
+
+        teams = (memberData || []).map(m => ({
+          teamId: m.team_id,
+          teamName: (m.teams as any)?.name || 'Unknown Team',
+          role: m.role || 'member'
+        }));
+      }
+
+      setUserTeams(teams);
+
+      // Auto-set active team if not already set or if current one is invalid
+      const currentStoredTeamId = getCurrentTeamId();
+      if (teams.length > 0) {
+        if (!currentStoredTeamId || !teams.find(t => t.teamId === currentStoredTeamId)) {
+          setActiveTeamId(teams[0].teamId);
+        }
+      }
+
       console.log(`[Auth] Org resolved: ${organizationName} (${organizationId})`);
+      console.log(`[Auth] Teams resolved: ${teams.length} teams found`);
     } catch (err) {
       console.warn('[Auth] lookupOrg error:', err instanceof Error ? err.message : err);
     }
@@ -205,11 +258,12 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         }
 
         if (event === 'SIGNED_OUT') {
-          clearCurrentOrg();
           setOrgIdState(null);
           setOrgRoleState(null);
           setOrgNameState(null);
           setOnboardingComplete(null);
+          setUserTeams([]);
+          setActiveTeamId(null);
         }
 
         setLoading(false);
@@ -361,7 +415,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     resetPassword,
     updatePassword,
     refreshOrg,
-  }), [user, session, loading, orgLoading, orgId, orgRole, orgName, onboardingComplete]);
+    userTeams,
+    activeTeamId,
+    setActiveTeamId,
+  }), [user, session, loading, orgLoading, orgId, orgRole, orgName, onboardingComplete, userTeams, activeTeamId]);
 
   return (
     <AuthContext.Provider value={value}>

@@ -13,6 +13,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/AuthContext';
 import { TopHeader } from '@/components/shared/top-header/TopHeader';
+import { TeamSwitcher } from '@/components/shared/TeamSwitcher';
 
 
 interface VelocityAISidebarProps {
@@ -150,6 +151,9 @@ export const VelocityAISidebar = ({ children }: VelocityAISidebarProps) => {
             </span>
           )}
         </div>
+
+        {/* Team Switcher */}
+        <TeamSwitcher collapsed={!sidebarOpen} />
 
         {/* Navigation Items */}
         <div className="flex-1 w-full flex flex-col gap-1 px-4">

@@ -6,23 +6,30 @@ import { toast } from 'sonner';
 import { setupProgressService } from '@/services/setupProgressService';
 
 export function useProjects() {
-  const { user } = useAuth();
+  const { user, activeTeamId } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
   const [projects, setProjects] = useState<Project[]>([]);
 
   // 1. Fetch Projects List
-  const fetchProjects = useCallback(async (orgId: string) => {
+  const fetchProjects = useCallback(async (orgId: string, teamId?: string | null) => {
     setIsLoading(true);
     try {
-      const { data, error } = await supabase
+      let query = supabase
         .from('projects')
         .select(`
           *,
           teams ( name ),
           tasks ( id )
         `)
-        .eq('organization_id', orgId)
-        .order('created_at', { ascending: false });
+        .eq('organization_id', orgId);
+
+      // Filter by team if provided or active
+      const targetTeamId = teamId !== undefined ? teamId : activeTeamId;
+      if (targetTeamId) {
+        query = query.eq('team_id', targetTeamId);
+      }
+
+      const { data, error } = await query.order('created_at', { ascending: false });
 
       if (error) throw error;
 

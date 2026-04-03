@@ -60,38 +60,41 @@ const queryClient = new QueryClient({
 
 
 import { useAuth } from "@/contexts/AuthContext";
+import { usePermissions } from "@/hooks/usePermissions";
 import { useEffect } from "react";
 import { useLocation } from "react-router-dom";
 
 const ManagerRoute = ({ children }: { children: React.ReactNode }) => {
-  const { orgRole, loading } = useAuth();
+  const { isManager, isEmployee } = usePermissions();
+  const { loading } = useAuth();
   const navigate = useNavigate();
 
   useEffect(() => {
-    if (!loading && orgRole) {
-      const role = orgRole.toLowerCase();
-      if (role === 'employee' || role === 'member') {
+    if (!loading) {
+      // Redirect to employee dashboard if NOT a manager in the current context
+      if (isEmployee && !isManager) {
         navigate('/app/employee/dashboard', { replace: true });
       }
     }
-  }, [orgRole, loading]); // Remove navigate from dependencies
+  }, [isManager, isEmployee, loading]);
 
   if (loading) return null;
   return <>{children}</>;
 };
 
 const EmployeeRoute = ({ children }: { children: React.ReactNode }) => {
-  const { orgRole, loading } = useAuth();
+  const { isManager, isEmployee } = usePermissions();
+  const { loading } = useAuth();
   const navigate = useNavigate();
 
   useEffect(() => {
-    if (!loading && orgRole) {
-      const role = orgRole.toLowerCase();
-      if (role !== 'employee' && role !== 'member') {
+    if (!loading) {
+      // Redirect to manager dashboard if NOT an employee in the current context
+      if (isManager && !isEmployee) {
         navigate('/dashboard', { replace: true });
       }
     }
-  }, [orgRole, loading]); // Remove navigate from dependencies
+  }, [isManager, isEmployee, loading]);
 
   if (loading) return null;
   return <>{children}</>;
