@@ -1,6 +1,7 @@
 import { supabase } from '@/lib/supabase';
 import { getCurrentOrgId } from '@/lib/orgContext';
 import type { KPIData, Deadline, GanttMember } from '@/types';
+import { calculateProjectHealthScore } from './healthService';
 
 interface DashboardOptions {
     startDate?: Date;
@@ -80,8 +81,23 @@ export const getDashboardData = async (options?: DashboardOptions) => {
 
         // --- 1. DYNAMIC KPIs ---
         // ... (preserving existing kpi logic)
-        const activeProjectsCount = projects?.filter(p => p.status === 'active').length || 0;
-        const projectsAtRiskCount = projects?.filter(p => p.status === 'draft' || p.status === 'archived').length || 0;
+                const activeProjects = projects?.filter(p => p.status !== 'completed' && p.status !== 'archived') || [];
+        const activeProjectsCount = activeProjects.length;
+
+        // Calculate At Risk projects using health calculations
+        // A project is considered "At Risk" if its composite health score (schedule + resource + risk + quality) is below 70.
+        let projectsAtRiskCount = 0;
+        activeProjects.forEach(project => {
+            const projectTasks = allTasks?.filter(t => t.project_id === project.id) || [];
+            const health = calculateProjectHealthScore({
+                issues: projectTasks,
+                startDate: project.start_date ? new Date(project.start_date) : undefined,
+                endDate: project.end_date ? new Date(project.end_date) : undefined,
+            });
+            if (health.compositeScore < 70) {
+                projectsAtRiskCount++;
+            }
+        });
 
         const totalWeeklyCapacity = users?.reduce((sum, u) => 
             sum + (u.capacity_hours_per_week || orgSettings?.work_hours_per_week || 40), 0) || 0;
