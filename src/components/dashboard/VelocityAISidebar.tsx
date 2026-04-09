@@ -106,7 +106,7 @@ export const VelocityAISidebar = ({ children }: VelocityAISidebarProps) => {
       >
         {/* Logo */}
         <div className={`mb-8 px-6 flex items-center ${sidebarOpen ? 'gap-3' : 'justify-center'}`}>
-          <div className="bg-[#2DD4BF] rounded-lg p-1.5 flex-shrink-0 shadow-[0_0_20px_rgba(45,212,191,0.3)] hover:shadow-[0_0_30px_rgba(45,212,191,0.5)] transition-all duration-300 cursor-pointer group">
+          <div className="bg-[#2DD4BF] rounded-lg p-1.5 flex-shrink-0 shadow-[0_0_20px_rgba(45,212,191,0.3)] hover:shadow-[0_0_40px_rgba(45,212,191,0.7)] hover:scale-110 transition-all duration-300 cursor-pointer group">
             <Zap className="w-5 h-5 text-[#1C1917] group-hover:scale-110 transition-transform duration-200" fill="currentColor" />
           </div>
           {sidebarOpen && (
@@ -127,7 +127,7 @@ export const VelocityAISidebar = ({ children }: VelocityAISidebarProps) => {
                 className={`w-full relative pl-4 pr-3 py-2.5 flex items-center ${sidebarOpen ? 'gap-3' : 'justify-center'} rounded-xl group transition-all duration-200 outline-none ${
                   isActive
                     ? 'bg-[#292524] text-white shadow-md'
-                    : 'text-[#A8A29E] hover:text-[#E7E5E4] hover:bg-[#292524]/50'
+                    : 'text-[#A8A29E] hover:text-[#2DD4BF] hover:bg-[#292524]/70'
                 }`}
                 title={item.label}
               >
@@ -135,7 +135,7 @@ export const VelocityAISidebar = ({ children }: VelocityAISidebarProps) => {
                 {isActive && (
                   <div className="absolute left-0 top-0 bottom-0 w-[3px] bg-[#2DD4BF] rounded-r-sm shadow-[0_0_10px_rgba(45,212,191,0.4)]" />
                 )}
-                <div className={`${isActive ? 'text-[#2DD4BF]' : 'text-[#78716C] group-hover:text-[#D6D3D1]'} transition-all flex-shrink-0 duration-200`}>
+                <div className={`${isActive ? 'text-[#2DD4BF]' : 'text-[#78716C] group-hover:text-[#2DD4BF]'} transition-all flex-shrink-0 duration-200`}>
                   {item.icon}
                 </div>
                 {sidebarOpen && (
@@ -156,14 +156,14 @@ export const VelocityAISidebar = ({ children }: VelocityAISidebarProps) => {
             className={`w-full relative pl-4 pr-3 py-2.5 flex items-center ${sidebarOpen ? 'gap-3' : 'justify-center'} rounded-xl group transition-all duration-200 outline-none ${
               activeSection === 'settings'
                 ? 'bg-[#292524] text-white shadow-md'
-                : 'text-[#A8A29E] hover:text-[#E7E5E4] hover:bg-[#292524]/50'
+                : 'text-[#A8A29E] hover:text-[#2DD4BF] hover:bg-[#292524]/70'
             }`}
             title="Settings"
           >
             {activeSection === 'settings' && (
               <div className="absolute left-0 top-0 bottom-0 w-[3px] bg-[#2DD4BF] rounded-r-sm shadow-[0_0_10px_rgba(45,212,191,0.4)]" />
             )}
-            <Settings className={`w-5 h-5 flex-shrink-0 transition-all duration-200 group-hover:rotate-90 ${activeSection === 'settings' ? 'text-[#2DD4BF]' : 'text-[#78716C] group-hover:text-[#D6D3D1]'}`} />
+            <Settings className={`w-5 h-5 flex-shrink-0 transition-all duration-200 group-hover:rotate-90 ${activeSection === 'settings' ? 'text-[#2DD4BF]' : 'text-[#78716C] group-hover:text-[#2DD4BF]'}`} />
             {sidebarOpen && (
               <span className={`text-sm whitespace-nowrap overflow-hidden animate-in fade-in duration-300 ${activeSection === 'settings' ? 'font-medium' : 'font-normal'}`}>
                 Settings
