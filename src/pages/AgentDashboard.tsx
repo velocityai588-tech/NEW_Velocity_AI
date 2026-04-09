@@ -17,6 +17,9 @@ import { StaleTaskFlagging } from '@/components/StaleTaskFlagging';
 import { SprintRetroGenerator } from '@/components/SprintRetroGenerator';
 import { CapacityNegotiator } from '@/components/CapacityNegotiator';
 import { EngineerGrowthTracker } from '@/components/EngineerGrowthTracker';
+import { ProjectComplexityScore } from '@/components/ProjectComplexityScore';
+import { WeeklyManagerScore } from '@/components/WeeklyManagerScore';
+import { AIChangelog } from '@/components/AIChangelog';
 import { VelocityAISidebar } from '@/components/dashboard/VelocityAISidebar';
 
 interface AgentStats {
@@ -294,6 +297,9 @@ export default function AgentDashboard() {
         <div className="mt-6"><SprintRetroGenerator /></div>
         <div className="mt-6"><CapacityNegotiator /></div>
         <div className="mt-6"><EngineerGrowthTracker /></div>
+        <div className="mt-6"><ProjectComplexityScore /></div>
+        <div className="mt-6"><WeeklyManagerScore /></div>
+        <div className="mt-6"><AIChangelog /></div>
 
         {/* Engineer Skill Graph */}
         <div className="bg-white border border-gray-200 rounded-xl p-6 mt-6">
