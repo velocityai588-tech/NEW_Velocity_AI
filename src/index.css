@@ -188,3 +188,147 @@
     line-height: 1.5;
   }
 }
+/* ============================================================
+   VELOCITY AI — GLOBAL POLISH
+   Append this to the bottom of your index.css file
+   ============================================================ */
+
+/* ── Card hover lift + teal glow ─────────────────────────────
+   Applies to every white card on dashboard and agent pages.
+   Subtle lift + a whisper of teal on the border. */
+.bg-white.rounded-xl,
+.bg-white.rounded-2xl,
+.bg-white.rounded-3xl {
+  transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1),
+              box-shadow 0.2s ease,
+              border-color 0.2s ease;
+}
+
+.bg-white.rounded-xl:hover,
+.bg-white.rounded-2xl:hover,
+.bg-white.rounded-3xl:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.07),
+              0 0 0 1px rgba(45, 212, 191, 0.12);
+}
+
+/* ── Button hover — teal glow on primary buttons ─────────────*/
+button:not([disabled]):not(.no-glow):hover {
+  transition: all 0.15s ease;
+}
+
+/* ── Teal accent buttons — neon pulse on hover ───────────────*/
+.bg-\[\#2DD4BF\]:hover,
+.bg-teal-500:hover,
+.bg-\[#0F766E\]:hover {
+  box-shadow: 0 0 20px rgba(45, 212, 191, 0.4),
+              0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+/* ── Stat numbers — tabular, crisp ───────────────────────────*/
+.text-2xl,
+.text-3xl,
+.text-4xl,
+.text-5xl {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum";
+}
+
+/* ── Progress bars — animated fill on mount ──────────────────*/
+@keyframes progressFill {
+  from { width: 0% }
+}
+
+.progress-bar {
+  animation: progressFill 0.8s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+/* ── Badge hover — subtle lift ───────────────────────────────*/
+.rounded-full.bg-teal-50:hover,
+.rounded-full.bg-violet-100:hover,
+.rounded-full.bg-amber-100:hover,
+.rounded-full.bg-green-100:hover {
+  transform: translateY(-1px);
+  transition: transform 0.15s ease;
+}
+
+/* ── Scrollbar — thin and branded ────────────────────────────*/
+::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(45, 212, 191, 0.2);
+  border-radius: 999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(45, 212, 191, 0.4);
+}
+
+/* ── Font rendering — crisper Inter ──────────────────────────*/
+body {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-feature-settings: "cv02", "cv03", "cv04", "kern";
+  text-rendering: optimizeLegibility;
+}
+
+/* ── Focus rings — teal instead of default ───────────────────*/
+*:focus-visible {
+  outline: 2px solid rgba(45, 212, 191, 0.6);
+  outline-offset: 2px;
+}
+
+/* ── Section headers — editorial feel ───────────────────────*/
+h2, h3 {
+  letter-spacing: -0.01em;
+}
+
+/* ── Card border on hover — teal whisper ─────────────────────*/
+.border-gray-200:hover {
+  border-color: rgba(45, 212, 191, 0.2);
+  transition: border-color 0.2s ease;
+}
+
+/* ── Shimmer animation for loading states ────────────────────*/
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+.shimmer {
+  background: linear-gradient(
+    90deg,
+    rgba(255,255,255,0) 0%,
+    rgba(255,255,255,0.6) 50%,
+    rgba(255,255,255,0) 100%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+}
+
+/* ── Neon teal glow utility class ────────────────────────────*/
+.glow-teal {
+  box-shadow: 0 0 20px rgba(45, 212, 191, 0.3),
+              0 0 40px rgba(45, 212, 191, 0.1);
+}
+
+.glow-teal-sm {
+  box-shadow: 0 0 10px rgba(45, 212, 191, 0.25);
+}
+
+/* ── Notification bell pulse ─────────────────────────────────*/
+@keyframes bellPing {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.5); opacity: 0; }
+}
+
+.bell-ping {
+  animation: bellPing 1.5s ease-in-out infinite;
+}

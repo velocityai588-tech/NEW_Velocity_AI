@@ -127,7 +127,7 @@ export const PredictiveHiring: React.FC = () => {
 
   if (loading || predictions.length === 0) return null;
 
-  const urgencyColor = { high: 'bg-red-100 text-red-700', medium: 'bg-amber-100 text-amber-700', low: 'bg-gray-100 text-gray-600' };
+  const urgencyColor = { high: 'bg-amber-100 text-amber-700', medium: 'bg-amber-100 text-amber-700', low: 'bg-gray-100 text-gray-600' };
 
   return (
     <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
