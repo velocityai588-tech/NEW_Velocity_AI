@@ -749,9 +749,9 @@ router.get('/team-members', async (req: Request, res: Response) => {
       name: emp.name,
       skills: Array.from(emp.skills),
       projects: Array.from(emp.projects),
-      current_load: Math.round(Math.random() * 100), // Placeholder - must be integer for ML engine
-      role_level: 'mid' as const, // Default - can be enhanced based on project role
-      availability_hours: 160 - (Math.random() * 100 * 1.6), // Placeholder
+      current_load: Math.min(100, emp.projects.size * 20),
+      role_level: 'mid' as const,
+      availability_hours: Math.max(0, 160 - (emp.projects.size * 20 * 1.6)),
       avg_completion_time: 40, // Default - can be enhanced with historical data
     }));
 
