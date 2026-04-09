@@ -13,6 +13,10 @@ import { StakeholderUpdate } from '@/components/StakeholderUpdate';
 import { RiskHeatmap } from '@/components/RiskHeatmap';
 import { ScopeEstimator } from '@/components/ScopeEstimator';
 import { RetroGenerator } from '@/components/RetroGenerator';
+import { StaleTaskFlagging } from '@/components/StaleTaskFlagging';
+import { SprintRetroGenerator } from '@/components/SprintRetroGenerator';
+import { CapacityNegotiator } from '@/components/CapacityNegotiator';
+import { EngineerGrowthTracker } from '@/components/EngineerGrowthTracker';
 import { VelocityAISidebar } from '@/components/dashboard/VelocityAISidebar';
 
 interface AgentStats {
@@ -285,6 +289,11 @@ export default function AgentDashboard() {
         <div className="mt-6">
           <ManagerReportCard />
         </div>
+
+        <div className="mt-6"><StaleTaskFlagging /></div>
+        <div className="mt-6"><SprintRetroGenerator /></div>
+        <div className="mt-6"><CapacityNegotiator /></div>
+        <div className="mt-6"><EngineerGrowthTracker /></div>
 
         {/* Engineer Skill Graph */}
         <div className="bg-white border border-gray-200 rounded-xl p-6 mt-6">
