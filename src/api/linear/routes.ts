@@ -74,7 +74,7 @@ router.post('/sync', async (req: Request, res: Response) => {
   }
 
   try {
-    const accessToken = await linearAuth.getAccessToken(req);
+    const accessToken = await linearAuth.getAccessToken(req) || (await getLinearConnection(orgId))?.access_token || null;
     if (!accessToken) {
       return res.status(401).json({ error: 'Not connected to Linear' });
     }
@@ -122,7 +122,7 @@ router.post('/push-task', async (req: Request, res: Response) => {
   }
 
   try {
-    const accessToken = await linearAuth.getAccessToken(req);
+    const accessToken = await linearAuth.getAccessToken(req) || (await getLinearConnection(orgId))?.access_token || null;
 
     if (!accessToken) {
       // Linear not connected — log to DB for later sync, don't fail silently
