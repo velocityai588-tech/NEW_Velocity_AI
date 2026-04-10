@@ -113,17 +113,17 @@ export const DashboardScreen = () => {
     }, [deadlines]);
 
     const KPICard = ({ label, value, trend, sublabel }: any) => (
-        <div className="bg-white border border-[#E7E5E4] rounded-2xl p-6 shadow-sm flex flex-col justify-between min-h-[140px]">
+        <div className="bg-white border border-[#E7E5E4]/80 rounded-2xl p-6 shadow-[0_1px_3px_rgba(0,0,0,0.06),0_1px_2px_rgba(0,0,0,0.04)] hover:shadow-[0_4px_12px_rgba(0,0,0,0.08)] hover:-translate-y-0.5 transition-all duration-200 flex flex-col justify-between min-h-[140px]">
             <div>
                 <div className="flex justify-between items-start mb-2">
-                    <p className="text-[11px] font-bold text-[#78716C] uppercase tracking-wider">{label}</p>
+                    <p className="text-[10px] font-semibold text-[#A8A29E] uppercase tracking-widest">{label}</p>
                     {trend && (
                         <div className={`w-6 h-6 rounded-full flex items-center justify-center ${trend === 'up' ? 'bg-[#F0FDFA] text-[#0F766E]' : 'bg-[#FEF2F2] text-[#DC2626]'}`}>
                             {trend === 'up' ? <ArrowUpRight size={14} /> : <ArrowDownRight size={14} />}
                         </div>
                     )}
                 </div>
-                <h3 className="text-4xl font-light text-[#1C1917] mt-1">{value !== undefined ? value : '--'}</h3>
+                <h3 className="text-4xl font-light text-[#1C1917] mt-1 tabular-nums tracking-tight">{value !== undefined ? value : '--'}</h3>
             </div>
             <div className="h-4 mt-2">
                 {sublabel && <p className="text-xs font-medium text-[#A8A29E]">{sublabel}</p>}

@@ -88,7 +88,7 @@ export default function Projects() {
                 {filteredProjects.map(project => (
                   <div
                     key={project.id}
-                    className="p-6 hover:bg-[#FAFAF9] cursor-pointer transition-colors group relative"
+                    className="p-6 hover:bg-[#FAFAF9] cursor-pointer transition-all duration-200 group relative hover:shadow-[inset_0_0_0_1px_rgba(45,212,191,0.15)]"
                     onClick={() => navigate(`/projects/${project.id}`)}
                   >
                     <div className="flex justify-between items-start">
