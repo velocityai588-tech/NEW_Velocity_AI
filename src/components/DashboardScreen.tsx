@@ -113,7 +113,7 @@ export const DashboardScreen = () => {
     }, [deadlines]);
 
     const KPICard = ({ label, value, trend, sublabel }: any) => (
-        <div className="bg-white border border-[#E7E5E4]/80 rounded-2xl p-6 shadow-[0_1px_3px_rgba(0,0,0,0.06),0_1px_2px_rgba(0,0,0,0.04)] hover:shadow-[0_4px_12px_rgba(0,0,0,0.08)] hover:-translate-y-0.5 transition-all duration-200 flex flex-col justify-between min-h-[140px]">
+        <div className="bg-white border border-[#E7E5E4]/80 rounded-2xl p-6 shadow-[0_1px_3px_rgba(0,0,0,0.06),0_1px_2px_rgba(0,0,0,0.04)] hover:shadow-[0_8px_24px_rgba(0,0,0,0.12)] hover:-translate-y-1.5 hover:border-[#2DD4BF]/30 transition-all duration-200 flex flex-col justify-between min-h-[140px]">
             <div>
                 <div className="flex justify-between items-start mb-2">
                     <p className="text-[10px] font-semibold text-[#A8A29E] uppercase tracking-widest">{label}</p>
