@@ -130,10 +130,10 @@ export default function Projects() {
                       <div className="flex flex-col items-end gap-2">
                         <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium ${
                           project.status === 'active'
-                            ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                            : 'bg-gray-50 text-gray-500 border border-gray-200'
+                            ? 'bg-[#f0fdf4] text-[#15803d] border border-[#bbf7d0]'
+                            : 'bg-[#f9fafb] text-[#6b7280] border border-[#e5e7eb]'
                         }`}>
-                          <span className={`w-1.5 h-1.5 rounded-full ${project.status === 'active' ? 'bg-emerald-500' : 'bg-gray-400'}`} />
+                          <span className={`w-1.5 h-1.5 rounded-full ${project.status === 'active' ? 'bg-[#22c55e]' : 'bg-[#9ca3af]'}`} />
                           {project.status || 'inactive'}
                         </span>
                       </div>
