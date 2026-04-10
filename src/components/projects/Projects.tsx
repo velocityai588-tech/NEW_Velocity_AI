@@ -128,10 +128,14 @@ export default function Projects() {
 
                       {/* Status Indicator */}
                       <div className="flex flex-col items-end gap-2">
-                        <div className={`w-2.5 h-2.5 rounded-full ${
-                          project.status === 'active' ? 'bg-green-500' : 'bg-gray-300'
-                        }`} />
-                        <span className="text-xs text-gray-400 capitalize">{project.status}</span>
+                        <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium ${
+                          project.status === 'active'
+                            ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                            : 'bg-gray-50 text-gray-500 border border-gray-200'
+                        }`}>
+                          <span className={`w-1.5 h-1.5 rounded-full ${project.status === 'active' ? 'bg-emerald-500' : 'bg-gray-400'}`} />
+                          {project.status || 'inactive'}
+                        </span>
                       </div>
                     </div>
                   </div>

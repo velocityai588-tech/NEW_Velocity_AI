@@ -205,7 +205,7 @@ export const DashboardScreen = () => {
                     <div className="bg-white border border-[#E7E5E4] rounded-2xl p-8 shadow-sm">
                         <div className="flex flex-col mb-6">
                             <div className="flex justify-between items-center w-full">
-                                <h2 className="text-xl font-medium text-[#1C1917]">Team Capacity & Allocation</h2>
+                                <h2 className="text-lg font-light text-[#1C1917] tracking-wide">Team Capacity & Allocation</h2>
                                 <div className="flex items-center gap-3">
                                     <Select value={ganttFilterProject} onValueChange={setGanttFilterProject}>
                                         <SelectTrigger className="h-9 w-[120px] text-xs font-semibold bg-white border-[#E7E5E4] rounded-full shadow-sm text-[#78716C]">
@@ -352,7 +352,7 @@ export const DashboardScreen = () => {
 
                     <div className="bg-white border border-[#E7E5E4] rounded-2xl p-8 shadow-sm">
                         <div className="flex justify-between items-center mb-6">
-                            <h2 className="text-xl font-medium text-[#1C1917]">Upcoming Deadlines</h2>
+                            <h2 className="text-lg font-light text-[#1C1917] tracking-wide">Upcoming Deadlines</h2>
                             <span className="text-xs font-bold text-[#A8A29E] uppercase tracking-wider cursor-pointer hover:text-[#1C1917] transition-colors">View All</span>
                         </div>
                         <div className="space-y-4">
