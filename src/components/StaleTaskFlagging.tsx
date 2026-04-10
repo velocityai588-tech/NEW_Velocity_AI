@@ -8,8 +8,7 @@ interface StaleTask {
   id: string;
   name: string;
   assigneeName: string;
-  daysSinceUpdate: number;
-  projectName: string;
+  daysSinceCreate: number;
   status: string;
 }
 
@@ -24,28 +23,27 @@ export const StaleTaskFlagging: React.FC = () => {
   const load = async () => {
     setLoading(true);
     const orgId = getCurrentOrgId();
-    if (!orgId) return;
+    if (!orgId) { setLoading(false); return; }
     try {
       const fourteenDaysAgo = new Date();
       fourteenDaysAgo.setDate(fourteenDaysAgo.getDate() - 14);
 
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('tasks')
-        .select('id, name, status, updated_at, assignee_id, project_id, users(name), projects(name)')
-        .not('status', 'in', '("completed","done","closed")')
-        .lt('updated_at', fourteenDaysAgo.toISOString())
+        .select('id, name, status, created_at, assignee_id')
+        .lt('created_at', fourteenDaysAgo.toISOString())
         .not('assignee_id', 'is', null)
-        .limit(10);
+        .not('status', 'in', '("completed","done","closed")')
+        .limit(8);
+
+      if (error) { console.error('StaleTaskFlagging error:', error.message); return; }
 
       if (data) {
         setTasks(data.map((t: any) => ({
           id: t.id,
-          name: t.name,
-          assigneeName: t.users?.name || 'Someone',
-          daysSinceUpdate: Math.floor(
-            (Date.now() - new Date(t.updated_at).getTime()) / 86400000
-          ),
-          projectName: t.projects?.name || 'Unknown project',
+          name: t.name || 'Unnamed task',
+          assigneeName: "Team member",
+          daysSinceCreate: Math.floor((Date.now() - new Date(t.created_at).getTime()) / 86400000),
           status: t.status,
         })));
       }
@@ -59,10 +57,7 @@ export const StaleTaskFlagging: React.FC = () => {
   const handleMarkActive = async (task: StaleTask) => {
     setActioning(task.id);
     try {
-      await supabase
-        .from('tasks')
-        .update({ updated_at: new Date().toISOString(), status: 'in_progress' })
-        .eq('id', task.id);
+      await supabase.from('tasks').update({ status: 'in_progress' }).eq('id', task.id);
       toast.success(`"${task.name}" marked as active`);
       setDismissed(prev => new Set([...prev, task.id]));
     } catch {
@@ -75,10 +70,7 @@ export const StaleTaskFlagging: React.FC = () => {
   const handleClose = async (task: StaleTask) => {
     setActioning(task.id);
     try {
-      await supabase
-        .from('tasks')
-        .update({ status: 'completed', updated_at: new Date().toISOString() })
-        .eq('id', task.id);
+      await supabase.from('tasks').update({ status: 'completed' }).eq('id', task.id);
       toast.success(`"${task.name}" closed`);
       setDismissed(prev => new Set([...prev, task.id]));
     } catch {
@@ -108,15 +100,13 @@ export const StaleTaskFlagging: React.FC = () => {
           <RefreshCw className="w-3.5 h-3.5" />
         </button>
       </div>
-
       <div className="divide-y divide-gray-50">
         {visible.map(task => (
           <div key={task.id} className="px-5 py-3 flex items-center justify-between gap-4">
             <div className="min-w-0 flex-1">
               <p className="text-sm font-medium text-gray-900 truncate">{task.name}</p>
               <p className="text-xs text-gray-400 mt-0.5">
-                {task.assigneeName} · {task.projectName} ·{' '}
-                <span className="text-amber-600 font-medium">{task.daysSinceUpdate} days stale</span>
+                {task.assigneeName} · <span className="text-amber-600 font-medium">{task.daysSinceCreate} days old</span>
               </p>
             </div>
             <div className="flex items-center gap-2 flex-shrink-0">
