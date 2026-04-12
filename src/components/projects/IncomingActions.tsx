@@ -53,10 +53,10 @@ export const IncomingActions = () => {
         toast.success(`Synced! Found ${result.count} new items.`);
         fetchActions();
       } else {
-        toast.error('Sync failed. Is Gmail connected?');
+        toast.error('Sync failed. Please ensure Gmail is connected and the API server is up.');
       }
     } catch (e) {
-      toast.error('Sync error');
+      toast.error('Unable to reach the server for Gmail sync.');
     } finally {
       setSyncing(false);
     }
@@ -75,9 +75,11 @@ export const IncomingActions = () => {
       if (resp.ok) {
         setActions(actions.filter(a => a.id !== id));
         toast.info('Action dismissed');
+      } else {
+        toast.error('Failed to dismiss action.');
       }
     } catch (e) {
-      toast.error('Failed to dismiss');
+      toast.error('Server unreachable. Could not dismiss action.');
     }
   };
 

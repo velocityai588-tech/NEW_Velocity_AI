@@ -42,6 +42,8 @@ export const GmailConnect: React.FC<GmailConnectProps> = ({ onConnectionChange }
       onConnectionChange?.(resp.ok);
     } catch (e) {
       setConnected(false);
+      // Only toast on manual checks, not on background status check to avoid spam
+      console.error('Google status check failed:', e);
     } finally {
       setLoading(false);
     }
@@ -69,7 +71,7 @@ export const GmailConnect: React.FC<GmailConnectProps> = ({ onConnectionChange }
       onConnectionChange?.(false);
       toast.success('Gmail disconnected');
     } catch (e) {
-      toast.error('Failed to disconnect Gmail');
+      toast.error('Failed to disconnect Gmail. Please check if the API server is running.');
     } finally {
       setDisconnecting(false);
     }

@@ -52,6 +52,13 @@ async function loadEmployees(): Promise<void> {
   try {
     const csvPath = path.join(process.cwd(), 'public', 'data', 'employees.csv')
     console.log('Loading employees from:', csvPath)
+    
+    if (!fs.existsSync(csvPath)) {
+      console.warn('[DeployedRoutes] employees.csv not found at:', csvPath);
+      employees = [];
+      return;
+    }
+
     const csvText = fs.readFileSync(csvPath, 'utf-8')
     console.log('CSV text length:', csvText.length)
     
