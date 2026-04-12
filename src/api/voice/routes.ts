@@ -4,7 +4,7 @@ import fetch from 'node-fetch';
 
 const router = express.Router();
 
-const SYSTEM_PROMPT = (currentPath: string) => `
+const SYSTEM_PROMPT = (currentPath: string, currentProjectId?: string) => `
 You are the voice assistant for Velocity AI — a workforce intelligence platform for engineering teams.
 You help managers plan projects, allocate team members, check capacity, and navigate the app by voice.
 
@@ -178,7 +178,7 @@ router.post('/parse', async (req: Request, res: Response) => {
 
   const geminiKey = process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY;
   const groqKey = process.env.GROQ_API_KEY;
-  const prompt = SYSTEM_PROMPT(currentPath);
+  const prompt = SYSTEM_PROMPT(currentPath, currentProjectId);
   const userMessage = `User said: "${transcript}"`;
 
   // ── 1. Gemini 2.0 Flash ──────────────────────────────────────────────────
