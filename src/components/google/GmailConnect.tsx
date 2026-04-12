@@ -1,4 +1,5 @@
 // src/components/google/GmailConnect.tsx
+import { supabase } from '@/lib/supabase';
 import React, { useEffect, useState } from 'react';
 import { apiUrl } from '@/lib/api';
 import { getCurrentOrgId } from '@/lib/orgContext';
@@ -26,14 +27,14 @@ export const GmailConnect: React.FC<GmailConnectProps> = ({ onConnectionChange }
     setLoading(true);
     try {
       const resp = await fetch(apiUrl('/api/google/pending-actions'), {
-        headers: { 'Authorization': `Bearer ${sessionStorage.getItem('supabaseToken')}` }, 
+        headers: { 'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token || ''}` }, 
         // Note: Using sessionStorage token for simplicity, better to use a dedicated hook
       });
       
       // If the above fails with 404, might not be implemented yet.
       // But we can check specifically for the connection.
       const connResp = await fetch(apiUrl('/api/google/auth/status'), {
-         headers: { 'Authorization': `Bearer ${sessionStorage.getItem('supabaseToken')}` }
+         headers: { 'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token || ''}` }
       });
       // (Implementation note: I'll need to add /auth/status endpoint if not exists, 
       // or just assume if one call works, connection exists).
@@ -63,7 +64,7 @@ export const GmailConnect: React.FC<GmailConnectProps> = ({ onConnectionChange }
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${sessionStorage.getItem('supabaseToken')}`
+          'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token || ''}`
         },
       });
       setConnected(false);

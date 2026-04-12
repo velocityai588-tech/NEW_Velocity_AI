@@ -1,4 +1,5 @@
 // src/components/projects/IncomingActions.tsx
+import { supabase } from '@/lib/supabase';
 import React, { useEffect, useState } from 'react';
 import { apiUrl } from '@/lib/api';
 import { getCurrentOrgId } from '@/lib/orgContext';
@@ -28,7 +29,7 @@ export const IncomingActions = () => {
     setLoading(true);
     try {
       const resp = await fetch(apiUrl('/api/google/pending-actions'), {
-        headers: { 'Authorization': `Bearer ${sessionStorage.getItem('supabaseToken')}` }
+        headers: { 'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token || ''}` }
       });
       if (resp.ok) {
         const data = await resp.json();
@@ -46,7 +47,7 @@ export const IncomingActions = () => {
     try {
       const resp = await fetch(apiUrl('/api/google/sync'), {
         method: 'POST',
-        headers: { 'Authorization': `Bearer ${sessionStorage.getItem('supabaseToken')}` }
+        headers: { 'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token || ''}` }
       });
       if (resp.ok) {
         const result = await resp.json();
@@ -68,7 +69,7 @@ export const IncomingActions = () => {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${sessionStorage.getItem('supabaseToken')}`
+          'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token || ''}`
         },
         body: JSON.stringify({ status: 'dismissed' })
       });
