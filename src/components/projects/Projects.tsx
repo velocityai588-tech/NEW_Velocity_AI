@@ -8,6 +8,7 @@ import { useProjects } from '@/hooks/useProjects'; // <--- NEW HOOK
 import { ProjectsEmptyState } from './ProjectsEmptyState';
 import { getCurrentOrgId } from '@/lib/orgContext';
 import { IngestionControl } from './IngestionControl';
+import { IncomingActions } from './IncomingActions';
 
 export default function Projects() {
   const navigate = useNavigate();
@@ -71,6 +72,9 @@ export default function Projects() {
             </div>
           </div>
 
+          {/* Incoming Actions from Gmail */}
+          <IncomingActions />
+          
           {/* Ingestion Control */}
           {/* <div className="mb-8">
             <IngestionControl projectId={filteredProjects[0]?.id || null} userId={user?.id || ''} />

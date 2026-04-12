@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { VelocityAISidebar } from '@/components/dashboard/VelocityAISidebar';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Plus, ChevronDown, Check, Trash2, Loader2, FileUp } from 'lucide-react';
@@ -56,6 +56,9 @@ export default function CreateProject() {
     { id: 1, name: 'Database Setup', assignee: 'Unassigned', hours: '4', timeline: 'Week 1', startDate: getTodayDateString(), dueDate: '' },
   ]);
 
+  const location = useLocation();
+  const incomingAction = location.state?.incomingAction;
+
   // Upload dialog state
   const [isUploadDialogOpen, setIsUploadDialogOpen] = useState(false);
 
@@ -77,6 +80,25 @@ export default function CreateProject() {
       if (me) setProjectLead(me.id);
     }
   }, [employees, user, projectLead]);
+  
+  // Handle incoming action items from Gmail
+  useEffect(() => {
+    if (incomingAction) {
+      setProjectName(incomingAction.title);
+      setProjectKey(deriveProjectKey(incomingAction.title));
+      setDescription(incomingAction.description);
+      
+      // If metadata has tasks or dates, populate them
+      if (incomingAction.metadata?.dueDate) {
+        setDueDate(incomingAction.metadata.dueDate);
+      }
+      
+      toast({
+        title: "Action Imported",
+        description: "Drafting project from Gmail action item.",
+      });
+    }
+  }, [incomingAction]);
 
   // --- Handlers ---
 

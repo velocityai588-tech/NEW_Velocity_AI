@@ -29,6 +29,7 @@ import employeeRoutes from "./src/api/employee/routes.ts"
 import organizationRoutes from "./src/api/organization/routes.ts"
 import linearRoutes from "./src/api/linear/routes.ts"
 import voiceRoutes from "./src/api/voice/routes.ts"
+import googleRoutes from "./src/api/google/routes.ts"
 
 export const app = express()
 
@@ -93,6 +94,7 @@ app.use('/api/invites', invitesRoutes);
 app.use('/api/organization', organizationRoutes);
 app.use('/api/linear', linearRoutes);
 app.use('/api/voice', voiceRoutes);
+app.use('/api/google', googleRoutes);
 
 // AI Description Expander
 app.post('/api/ai/expand-description', async (req: Request, res: Response) => {

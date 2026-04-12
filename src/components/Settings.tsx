@@ -3,6 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import { supabase } from '@/lib/supabase';
 import { useJiraConnection } from '@/hooks/useJiraConnection';
 import { LinearConnect } from '@/components/linear/LinearConnect';
+import { GmailConnect } from '@/components/google/GmailConnect';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
@@ -88,6 +89,7 @@ const SettingsScreen = () => {
           { name: 'Asana', description: 'Sync project management data', connected: false },
           { name: 'Slack', description: 'Get notifications and updates', connected: false },
           { name: 'Google Calendar', description: 'Sync team schedules', connected: false },
+          { name: 'Gmail / GSuite', description: 'Auto-sync action items from @firefly.ai and Gemini emails', connected: false },
         ]);
       }
     } catch (error) {
@@ -549,6 +551,8 @@ const SettingsScreen = () => {
                       </div>
                     ) : integration.name === 'Linear' ? (
                       <LinearConnect />
+                    ) : integration.name.includes('Gmail') ? (
+                      <GmailConnect />
                     ) : (
                       !integration.connected && (
                         <Button className="bg-[#1C1917] text-white h-9 px-5 rounded-xl">Connect</Button>

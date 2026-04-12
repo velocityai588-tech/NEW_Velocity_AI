@@ -67,6 +67,8 @@
     "exceljs": "^4.4.0",
     "express": "^5.2.1",
     "express-session": "^1.17.3",
+    "google-auth-library": "^10.6.2",
+    "googleapis": "^171.4.0",
     "gsap": "^3.14.2",
     "html2canvas": "^1.4.1",
     "input-otp": "^1.4.2",
