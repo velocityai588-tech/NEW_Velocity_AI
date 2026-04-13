@@ -118,7 +118,7 @@ export const LiveMeetingAssistant: React.FC = () => {
   if (!isOpen) return (
     <button
       onClick={() => setIsOpen(true)}
-      className="fixed bottom-4 right-4 w-14 h-14 rounded-full bg-[#0F766E] text-white flex items-center justify-center shadow-[0_4px_20px_rgba(45,212,191,0.4)] hover:shadow-[0_4px_24px_rgba(45,212,191,0.6)] hover:scale-105 transition-all duration-200 z-50"
+      className="fixed bottom-6 left-6 w-12 h-12 rounded-full bg-[#2DD4BF] text-white flex items-center justify-center shadow-[0_4px_20px_rgba(45,212,191,0.4)] hover:shadow-[0_4px_24px_rgba(45,212,191,0.6)] hover:scale-105 transition-all duration-200 z-50"
       title="AI Meeting Assistant"
     >
       <Mic className="w-5 h-5" />
@@ -126,7 +126,7 @@ export const LiveMeetingAssistant: React.FC = () => {
   );
 
   return (
-    <div className="fixed bottom-20 right-4 w-80 bg-white rounded-2xl shadow-2xl border border-gray-100 z-50 overflow-hidden">
+    <div className="fixed bottom-6 left-6 w-80 bg-white rounded-2xl shadow-2xl border border-gray-100 z-50 overflow-hidden">
       {/* Header */}
       <div className="flex items-center justify-between p-4 border-b border-gray-100 bg-gradient-to-r from-[#F0FDFA] to-white">
         <div className="flex items-center gap-2">
