@@ -56,16 +56,44 @@ export const QuickCreateTask: React.FC<QuickCreateTaskProps> = ({ onTaskCreated 
         const data = await res.json();
         const member = members.find(m => data.description?.toLowerCase().includes(m.name?.toLowerCase()));
         const project = projects.find(p => data.description?.toLowerCase().includes(p.name?.toLowerCase()));
-        setParsed({
+        const parsedData = {
           name: input,
           assigneeId: member?.id || null,
           projectId: project?.id || null,
-        });
+        };
+        setParsed(parsedData);
+        // Auto-create task immediately
+        await autoSave(parsedData);
       }
     } catch (e) {
-      setParsed({ name: input, assigneeId: null, projectId: null });
+      const parsedData = { name: input, assigneeId: null, projectId: null };
+      setParsed(parsedData);
+      await autoSave(parsedData);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const autoSave = async (parsedData: any) => {
+    if (!parsedData?.name) return;
+    setSaving(true);
+    try {
+      await supabase.from('tasks').insert({
+        name: parsedData.name,
+        project_id: parsedData.projectId || null,
+        assignee_id: parsedData.assigneeId || null,
+        status: 'not_started',
+        created_at: new Date().toISOString(),
+      });
+      toast.success(`Task "${parsedData.name}" created${parsedData.assigneeId ? ' and assigned' : ''}`);
+      setIsOpen(false);
+      setInput('');
+      setParsed(null);
+      onTaskCreated?.();
+    } catch (e) {
+      toast.error('Failed to create task');
+    } finally {
+      setSaving(false);
     }
   };
 
