@@ -1,24 +1,10 @@
 {
   "version": 2,
-  "functions": {
-    "api/index.ts": {
-      "memory": 1024,
-      "maxDuration": 60
-    },
-    "api/ml.ts": {
-      "memory": 512,
-      "maxDuration": 45
-    }
-  },
   "buildCommand": "npm run build",
   "devCommand": "npm run dev",
   "outputDirectory": "dist",
-  "env": {
-    "NODE_ENV": "production"
-  },
   "rewrites": [
-    { "source": "/api/ml/:path*", "destination": "/api/ml?_path=/:path*" },
-    { "source": "/api/:path*", "destination": "/api/index?_path=/api/:path*" },
+    { "source": "/api/:path*", "destination": "https://velocity-ai-api.onrender.com/api/:path*" },
     { "source": "/(.*)", "destination": "/index.html" }
   ]
 }
