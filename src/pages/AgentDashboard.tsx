@@ -1,3 +1,4 @@
+import { LiveMeetingAssistant } from '@/components/meetings/LiveMeetingAssistant';
 import React, { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { getCurrentOrgId } from '@/lib/orgContext';
@@ -30,6 +31,8 @@ interface AgentStats {
   topMatchedMembers: { name: string; count: number }[];
   thisWeekSuggestions: number;
 }
+
+// LiveMeetingAssistant added to Agent page only
 
 export default function AgentDashboard() {
   const [stats, setStats] = useState<AgentStats | null>(null);
@@ -93,7 +96,8 @@ export default function AgentDashboard() {
         <div className="flex items-center justify-center h-64">
           <RefreshCw className="w-6 h-6 animate-spin text-primary" />
         </div>
-      </VelocityAISidebar>
+        <LiveMeetingAssistant />
+</VelocityAISidebar>
     );
 
   if (!stats) return null;
@@ -313,6 +317,7 @@ export default function AgentDashboard() {
           <SkillGraph />
         </div>
       </div>
-    </VelocityAISidebar>
+      <LiveMeetingAssistant />
+</VelocityAISidebar>
   );
 }
