@@ -118,7 +118,7 @@ export const LiveMeetingAssistant: React.FC = () => {
   if (!isOpen) return (
     <button
       onClick={() => setIsOpen(true)}
-      className="fixed bottom-4 right-4 w-14 h-14 rounded-full bg-[#0F766E] text-white flex items-center justify-center shadow-[0_4px_20px_rgba(45,212,191,0.4)] hover:shadow-[0_4px_24px_rgba(45,212,191,0.6)] hover:scale-105 transition-all duration-200 z-[9999]"
+      className="fixed bottom-4 right-4 w-14 h-14 rounded-full bg-[#0F766E] text-white flex items-center justify-center shadow-[0_4px_20px_rgba(45,212,191,0.4)] hover:shadow-[0_4px_24px_rgba(45,212,191,0.6)] hover:scale-105 transition-all duration-200 z-50"
       title="AI Meeting Assistant"
     >
       <Mic className="w-5 h-5" />
