@@ -335,3 +335,124 @@ async function fetchLinearIssues(accessToken: string, workspaceId: string): Prom
     url: node.url || '',
   }));
 }
+
+// ── Auto-push from Supabase trigger ───────────────────────────────────────────
+// POST /api/linear/auto-push
+// Called by Supabase DB trigger when any task is inserted
+router.post('/auto-push', async (req: Request, res: Response) => {
+  const { task_id, task_name, description, project_id, assignee_id } = req.body;
+  if (!task_name) return res.status(400).json({ error: 'task_name required' });
+
+  try {
+    // Find org from project
+    const { createClient } = await import('@supabase/supabase-js');
+    const supabase = createClient(
+      process.env.SUPABASE_URL || '',
+      process.env.SUPABASE_SERVICE_ROLE_KEY || ''
+    );
+
+    const { data: project } = await supabase
+      .from('projects')
+      .select('organization_id')
+      .eq('id', project_id)
+      .single();
+
+    if (!project) return res.json({ skipped: true });
+
+    const conn = await getLinearConnection(project.organization_id);
+    if (!conn?.access_token) return res.json({ skipped: true, reason: 'no linear connection' });
+
+    // Create Linear issue
+    const mutation = `
+      mutation CreateIssue($input: IssueCreateInput!) {
+        issueCreate(input: $input) {
+          success
+          issue { id identifier url title }
+        }
+      }
+    `;
+
+    const response = await fetch('https://api.linear.app/graphql', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${conn.access_token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        query: mutation,
+        variables: { input: { title: task_name, description: description || '', priority: 2 } }
+      }),
+    });
+
+    const data = await response.json() as any;
+    const result = data?.data?.issueCreate;
+
+    if (result?.success) {
+      // Store Linear issue ID back on the task
+      await supabase.from('tasks').update({
+        linear_issue_id: result.issue.id,
+        linear_issue_url: result.issue.url,
+        linear_identifier: result.issue.identifier,
+      }).eq('id', task_id);
+
+      console.log(`[Linear AutoPush] ✓ ${result.issue.identifier}: ${task_name}`);
+    }
+
+    res.json({ success: result?.success || false });
+  } catch (err: any) {
+    console.error('[Linear AutoPush] Error:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ── Linear webhook — real-time sync back to Velocity AI ──────────────────────
+// POST /api/linear/webhook
+// Register at: https://linear.app/settings/api → Webhooks
+router.post('/webhook', async (req: Request, res: Response) => {
+  const { type, data, organizationId } = req.body;
+
+  try {
+    const { createClient } = await import('@supabase/supabase-js');
+    const supabase = createClient(
+      process.env.SUPABASE_URL || '',
+      process.env.SUPABASE_SERVICE_ROLE_KEY || ''
+    );
+
+    if (type === 'Issue' && data) {
+      // Find org by Linear workspace
+      const { data: conn } = await supabase
+        .from('linear_connections')
+        .select('org_id')
+        .eq('workspace_id', organizationId)
+        .single();
+
+      if (!conn) return res.json({ skipped: true });
+
+      // Upsert issue in our DB
+      await supabase.from('linear_issues').upsert({
+        org_id: conn.org_id,
+        issue_id: data.id,
+        identifier: data.identifier,
+        title: data.title,
+        description: data.description || '',
+        status: data.state?.name || 'Unknown',
+        priority: data.priority || 0,
+        assignee_name: data.assignee?.name || '',
+        updated_at: data.updatedAt,
+      }, { onConflict: 'issue_id' });
+
+      // If issue is completed in Linear, mark Velocity AI task as done
+      if (data.state?.type === 'completed') {
+        await supabase.from('tasks')
+          .update({ status: 'completed' })
+          .eq('linear_issue_id', data.id);
+        console.log(`[Linear Webhook] Issue ${data.identifier} completed — synced to Velocity AI`);
+      }
+    }
+
+    res.json({ success: true });
+  } catch (err: any) {
+    console.error('[Linear Webhook] Error:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
