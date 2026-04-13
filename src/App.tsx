@@ -1,4 +1,3 @@
-import { LiveMeetingAssistant } from '@/components/meetings/LiveMeetingAssistant';
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -106,8 +105,7 @@ const App = () => (
       <TooltipProvider>
         <AuthProvider>
           <Analytics />
-          <LiveMeetingAssistant />
-      <Toaster />
+          <Toaster />
           <Sonner />
           <ToastContainer />
           <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
