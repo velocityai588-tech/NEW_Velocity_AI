@@ -44,31 +44,18 @@ export const QuickCreateTask: React.FC<QuickCreateTaskProps> = ({ onTaskCreated 
     if (!input.trim()) return;
     setLoading(true);
     try {
-      const res = await fetch('/api/ai/expand-description', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          title: input,
-          description: `Parse this task request and extract: task name, assignee name if mentioned, project name if mentioned, priority (low/medium/high). Input: "${input}"`,
-        }),
-      });
-      if (res.ok) {
-        const data = await res.json();
-        const member = members.find(m => data.description?.toLowerCase().includes(m.name?.toLowerCase()));
-        const project = projects.find(p => data.description?.toLowerCase().includes(p.name?.toLowerCase()));
-        const parsedData = {
-          name: input,
-          assigneeId: member?.id || null,
-          projectId: project?.id || null,
-        };
-        setParsed(parsedData);
-        // Auto-create task immediately
-        await autoSave(parsedData);
-      }
-    } catch (e) {
-      const parsedData = { name: input, assigneeId: null, projectId: null };
+      // Match assignee and project from input text directly
+      const member = members.find(m => input.toLowerCase().includes(m.name?.toLowerCase()));
+      const project = projects.find(p => input.toLowerCase().includes(p.name?.toLowerCase()));
+      const parsedData = {
+        name: input,
+        assigneeId: member?.id || null,
+        projectId: project?.id || null,
+      };
       setParsed(parsedData);
       await autoSave(parsedData);
+    } catch (e) {
+      toast.error('Failed to create task');
     } finally {
       setLoading(false);
     }
