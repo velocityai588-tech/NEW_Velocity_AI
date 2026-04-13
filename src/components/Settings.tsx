@@ -3,6 +3,9 @@ import { useSearchParams } from 'react-router-dom';
 import { supabase } from '@/lib/supabase';
 import { useJiraConnection } from '@/hooks/useJiraConnection';
 import { LinearConnect } from '@/components/linear/LinearConnect';
+import { ZoomConnect } from '@/components/integrations/ZoomConnect';
+import { TeamsConnect } from '@/components/integrations/TeamsConnect';
+import { GmailConnect } from '@/components/google/GmailConnect';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
@@ -549,6 +552,12 @@ const SettingsScreen = () => {
                       </div>
                     ) : integration.name === 'Linear' ? (
                       <LinearConnect />
+                    ) : integration.name === 'Zoom' ? (
+                      <ZoomConnect />
+                    ) : integration.name === 'Microsoft Teams' ? (
+                      <TeamsConnect />
+                    ) : integration.name.includes('Gmail') ? (
+                      <GmailConnect />
                     ) : (
                       !integration.connected && (
                         <Button className="bg-[#1C1917] text-white h-9 px-5 rounded-xl">Connect</Button>
