@@ -97,7 +97,7 @@ export const QuickCreateTask: React.FC<QuickCreateTaskProps> = ({ onTaskCreated 
       {/* Premium floating + button */}
       <button
         onClick={() => setIsOpen(true)}
-        className="fixed bottom-6 right-6 w-12 h-12 rounded-full bg-[#1C1917] text-white flex items-center justify-center shadow-[0_4px_20px_rgba(0,0,0,0.25),0_0_0_1px_rgba(255,255,255,0.05)] hover:shadow-[0_4px_24px_rgba(0,0,0,0.35),0_0_20px_rgba(45,212,191,0.2)] hover:bg-[#292524] hover:scale-105 transition-all duration-200 z-40 group"
+        className="fixed bottom-24 right-6 w-12 h-12 rounded-full bg-[#1C1917] text-white flex items-center justify-center shadow-[0_4px_20px_rgba(0,0,0,0.25),0_0_0_1px_rgba(255,255,255,0.05)] hover:shadow-[0_4px_24px_rgba(0,0,0,0.35),0_0_20px_rgba(45,212,191,0.2)] hover:bg-[#292524] hover:scale-105 transition-all duration-200 z-40 group"
         title="Quick create task"
       >
         <Plus className="w-5 h-5 group-hover:text-[#2DD4BF] transition-colors duration-200" strokeWidth={2} />
