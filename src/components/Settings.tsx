@@ -6,6 +6,7 @@ import { LinearConnect } from '@/components/linear/LinearConnect';
 import { ZoomConnect } from '@/components/integrations/ZoomConnect';
 import { TeamsConnect } from '@/components/integrations/TeamsConnect';
 import { GmailConnect } from '@/components/google/GmailConnect';
+import { GoogleCalendarConnect } from '@/components/integrations/GoogleCalendarConnect';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
@@ -558,18 +559,24 @@ const SettingsScreen = () => {
                       <TeamsConnect />
                     ) : integration.name.includes('Gmail') ? (
                       <GmailConnect />
+                    ) : integration.name === 'Google Calendar' ? (
+                      <GoogleCalendarConnect />
                     ) : integration.name === 'Zoom' ? (
                       <ZoomConnect />
                     ) : integration.name === 'Microsoft Teams' ? (
                       <TeamsConnect />
                     ) : integration.name.includes('Gmail') ? (
                       <GmailConnect />
+                    ) : integration.name === 'Google Calendar' ? (
+                      <GoogleCalendarConnect />
                     ) : integration.name === 'Zoom' ? (
                       <ZoomConnect />
                     ) : integration.name === 'Microsoft Teams' ? (
                       <TeamsConnect />
                     ) : integration.name.includes('Gmail') ? (
                       <GmailConnect />
+                    ) : integration.name === 'Google Calendar' ? (
+                      <GoogleCalendarConnect />
                     ) : (
                       !integration.connected && (
                         <Button className="bg-[#1C1917] text-white h-9 px-5 rounded-xl">Connect</Button>

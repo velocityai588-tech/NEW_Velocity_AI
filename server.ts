@@ -56,6 +56,7 @@ import employeeRoutes from "./src/api/employee/routes.ts"
 import organizationRoutes from "./src/api/organization/routes.ts"
 import linearRoutes from "./src/api/linear/routes.ts"
 import googleRoutes from "./src/api/google/routes.ts"
+import calendarRoutes from "./src/api/google/calendarRoutes.ts"
 import zoomRoutes from "./src/api/zoom/routes.ts"
 import teamsRoutes from "./src/api/teams/routes.ts"
 import meetingsRoutes from "./src/api/meetings/routes.ts"
@@ -207,6 +208,8 @@ app.get("/health", (_req: Request, res: Response) => {
 
 // ============ Jira OAuth & API Routes (multi-tenant) ============
 app.use('/api/google', googleRoutes);
+app.use('/api/calendar', calendarRoutes);
+console.log('[Server] Calendar routes mounted');
 app.use('/api/zoom', zoomRoutes);
 console.log('[Server] Zoom routes mounted');
 app.use('/api/teams', teamsRoutes);
