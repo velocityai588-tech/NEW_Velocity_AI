@@ -19,10 +19,8 @@ const CALENDAR_SCOPES = [
   'https://www.googleapis.com/auth/userinfo.profile',
 ];
 
-const getRedirectUri = (req: Request) => {
-  const isProd = process.env.NODE_ENV === 'production' ||
-    req.hostname === 'joinvelocity.co' ||
-    req.hostname === 'www.joinvelocity.co';
+const getRedirectUri = (_req: Request) => {
+  const isProd = process.env.NODE_ENV === 'production';
   return isProd
     ? 'https://www.joinvelocity.co/api/calendar/auth/callback'
     : 'http://localhost:4000/api/calendar/auth/callback';
