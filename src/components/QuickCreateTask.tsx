@@ -65,16 +65,14 @@ export const QuickCreateTask: React.FC<QuickCreateTaskProps> = ({ onTaskCreated 
     if (!parsedData?.name) return;
     setSaving(true);
     try {
-      const orgId = getCurrentOrgId();
       const { error } = await supabase.from('tasks').insert({
         name: parsedData.name,
         project_id: parsedData.projectId || null,
         assignee_id: parsedData.assigneeId || null,
-        organization_id: orgId,
         status: 'not_started',
         created_at: new Date().toISOString(),
       });
-      if (error) throw error;
+      if (error) { console.error('Task insert error:', error); throw error; }
       toast.success(`Task "${parsedData.name}" created${parsedData.assigneeId ? ' and assigned' : ''}`);
       setIsOpen(false);
       setInput('');
@@ -91,16 +89,14 @@ export const QuickCreateTask: React.FC<QuickCreateTaskProps> = ({ onTaskCreated 
     if (!parsed?.name) return;
     setSaving(true);
     try {
-      const orgId = getCurrentOrgId();
       const { error } = await supabase.from('tasks').insert({
         name: parsed.name,
         project_id: parsed.projectId || null,
         assignee_id: parsed.assigneeId || null,
-        organization_id: orgId,
         status: 'not_started',
         created_at: new Date().toISOString(),
       });
-      if (error) throw error;
+      if (error) { console.error('Task insert error:', error); throw error; }
       toast.success(`Task "${parsed.name}" created`);
       setIsOpen(false);
       setInput('');
