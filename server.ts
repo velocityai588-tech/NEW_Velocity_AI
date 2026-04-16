@@ -59,6 +59,9 @@ import googleRoutes from "./src/api/google/routes.ts"
 import zoomRoutes from "./src/api/zoom/routes.ts"
 import teamsRoutes from "./src/api/teams/routes.ts"
 import meetingsRoutes from "./src/api/meetings/routes.ts"
+import zoomRoutes from "./src/api/zoom/routes.ts"
+import teamsRoutes from "./src/api/teams/routes.ts"
+import meetingsRoutes from "./src/api/meetings/routes.ts"
 const app = express()
 
 console.log("typeof express:", typeof express)
@@ -201,6 +204,12 @@ app.get("/health", (_req: Request, res: Response) => {
 
 // ============ Jira OAuth & API Routes (multi-tenant) ============
 app.use('/api/google', googleRoutes);
+app.use('/api/zoom', zoomRoutes);
+console.log('[Server] Zoom routes mounted');
+app.use('/api/teams', teamsRoutes);
+console.log('[Server] Teams routes mounted');
+app.use('/api/meetings', meetingsRoutes);
+console.log('[Server] Meetings routes mounted');
 app.use('/api/zoom', zoomRoutes);
 console.log('[Server] Zoom routes mounted');
 app.use('/api/teams', teamsRoutes);

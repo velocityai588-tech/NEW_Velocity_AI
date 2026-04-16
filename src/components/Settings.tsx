@@ -558,6 +558,12 @@ const SettingsScreen = () => {
                       <TeamsConnect />
                     ) : integration.name.includes('Gmail') ? (
                       <GmailConnect />
+                    ) : integration.name === 'Zoom' ? (
+                      <ZoomConnect />
+                    ) : integration.name === 'Microsoft Teams' ? (
+                      <TeamsConnect />
+                    ) : integration.name.includes('Gmail') ? (
+                      <GmailConnect />
                     ) : (
                       !integration.connected && (
                         <Button className="bg-[#1C1917] text-white h-9 px-5 rounded-xl">Connect</Button>
