@@ -65,9 +65,11 @@ export const QuickCreateTask: React.FC<QuickCreateTaskProps> = ({ onTaskCreated 
     if (!parsedData?.name) return;
     setSaving(true);
     try {
+      const projectId = parsedData.projectId || projects[0]?.id;
+      if (!projectId) { toast.error('Please create a project first'); return; }
       const { error } = await supabase.from('tasks').insert({
         name: parsedData.name,
-        project_id: parsedData.projectId || null,
+        project_id: projectId,
         assignee_id: parsedData.assigneeId || null,
         status: 'not_started',
         created_at: new Date().toISOString(),
